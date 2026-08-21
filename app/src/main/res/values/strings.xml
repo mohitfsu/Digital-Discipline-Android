@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">Digital Discipline</string>
+    <string name="accessibility_service_description">Monitors foreground app transitions for Digital Discipline policy enforcement and screen-time interventions. Does NOT read or record screen content, keystrokes, or messages.</string>
+    <string name="device_admin_description">Device policy administration for Digital Discipline workspace and device policy management (package suspension and uninstall protection).</string>
+</resources>

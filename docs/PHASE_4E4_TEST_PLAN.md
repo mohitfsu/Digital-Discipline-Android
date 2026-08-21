@@ -1,0 +1,49 @@
+# Phase 4E-4: Test Plan & Scenario Matrix
+
+## 46-Scenario Unit Test Plan (`PlanContinuityEngineTest.kt`)
+- 1. First-week completion detection
+- 2. First-week transition state
+- 3. Ongoing-week detection
+- 4. Keep-plan state preservation
+- 5. Review-plan state trigger
+- 6. Active goal & behaviour entities preserved after KEEP
+- 7. Recommendation surfaced in snapshot
+- 8. KEEP_PLAN recommendation generates null preview
+- 9. CHANGE_INTERVENTION preview diff
+- 10. REDUCE_REWARD preview diff
+- 11. SHORTER_INTERVENTION preview diff
+- 12. ADD_COOLDOWN preview diff
+- 13. CHANGE_DISTRACTION_WINDOW preview diff
+- 14. INSUFFICIENT_DATA handled gracefully
+- 15. User approval mandatory
+- 16. Unapproved change does not alter model
+- 17. Approved change persists atomically
+- 18. Atomic plan update guarantees consistency
+- 19. Failed update does not corrupt active plan
+- 20. Historical wallet preserved
+- 21. Historical analytics events intact
+- 22. First-Win state remains completed
+- 23. Habit Momentum history retained
+- 24. Goal progress records accessible
+- 25. Low-activity user receives supportive narrative
+- 26. High-performing user not overly inflated
+- 27. Ineffective intervention flagged
+- 28. Effective intervention confirmed working well
+- 29. Goal integrity healthy surfaces positive narrative
+- 30. Plan needs review surfaces actionable guidance
+- 31. Goal change maintains old goal until confirmed
+- 32. Goal change confirmation creates new active goal
+- 33. Goal change cancellation preserves existing goal
+- 34. Start fresh retains all historical wallet entries
+- 35. Start fresh creates active starting draft
+- 36. Existing AdaptivePlanEngine types directly consumed
+- 37. Zero duplicate recommendation engines
+- 38. Parent Mode BLOCK precedence
+- 39. Parent Mode DELAY precedence
+- 40. Wallet authority preserved
+- 41. Notification frequency governance
+- 42. Weekly review integration
+- 43. Offline operation
+- 44. Process recreation resilience
+- 45. Deterministic output
+- 46. Performance threshold (<5ms)

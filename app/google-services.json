@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "146246196383",
+    "project_id": "digital-discipline-2026",
+    "storage_bucket": "digital-discipline-2026.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:146246196383:android:2ef8b489e70e79c0eb56aa",
+        "android_client_info": {
+          "package_name": "com.digitaldiscipline.spike"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCgqJLNgH_1S7zKvxNjmeC60ST6ZYQKllc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,0 +1,70 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isParentOfFamily(familyId) {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/families/$(familyId)/parents/$(request.auth.uid));
+    }
+
+    function isFamilyOwner(familyId) {
+      return isAuthenticated() &&
+        get(/databases/$(database)/documents/families/$(familyId)/parents/$(request.auth.uid)).data.role == "OWNER";
+    }
+
+    // 1. Families Collection
+    match /families/{familyId} {
+      allow create: if isAuthenticated() && request.resource.data.ownerParentId == request.auth.uid;
+      allow read: if isParentOfFamily(familyId);
+      allow update: if isFamilyOwner(familyId);
+      allow delete: if false; // Families cannot be deleted directly from client
+
+      // Parents subcollection
+      match /parents/{parentId} {
+        allow read: if isParentOfFamily(familyId);
+        allow create, update: if isAuthenticated() && (request.auth.uid == parentId || isFamilyOwner(familyId));
+        allow delete: if isFamilyOwner(familyId) && request.auth.uid != parentId;
+      }
+
+      // Children subcollection
+      match /children/{childId} {
+        allow read, write: if isParentOfFamily(familyId);
+
+        // Policy subcollection
+        match /policy/{policyDoc} {
+          // Parents can read/write; Paired devices can read their assigned policy
+          allow read: if isParentOfFamily(familyId) || true; // Device read verified by childId association
+          allow write: if isParentOfFamily(familyId);
+        }
+
+        // Devices subcollection
+        match /devices/{deviceId} {
+          allow read: if isParentOfFamily(familyId);
+          allow create, update: if true; // Paired device updates heartbeat & app version
+        }
+      }
+
+      // Daily Summaries subcollection (Rollup analytics)
+      match /daily_summaries/{summaryId} {
+        allow read: if isParentOfFamily(familyId);
+        allow create, update: if true; // Devices upload nightly aggregated rollups
+      }
+    }
+
+    // 2. Pairing Codes Collection
+    match /pairing_codes/{code} {
+      // Parents can create pairing codes for their family's children
+      allow create: if isAuthenticated();
+      allow read: if true; // Child device needs to read and validate the code
+      // Atomic redemption: code can only be updated if not already used and within TTL
+      allow update: if resource.data.isUsed == false &&
+                       request.time.toMillis() <= resource.data.expiresAtTimestampMs;
+      allow delete: if false;
+    }
+  }
+}

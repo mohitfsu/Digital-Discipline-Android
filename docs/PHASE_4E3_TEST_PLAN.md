@@ -1,0 +1,43 @@
+# Phase 4E-3: Test Plan & Scenario Matrix
+
+## 40-Scenario Unit Test Plan (`HabitMomentumEngineTest.kt`)
+- 1. Empty 7-day window
+- 2. One completed day
+- 3. Multiple completed days
+- 4. Missed day identification
+- 5. Recovery after missed day
+- 6. Multiple missed days
+- 7. Today incomplete
+- 8. Today complete
+- 9. Day index and labels
+- 10. Meaningful intervention criteria
+- 11. Strong day calculation
+- 12. Momentum score calculation
+- 13. Momentum strictly bounded 0–100
+- 14. Missed day does not reset momentum
+- 15. Recovery increases momentum
+- 16. 3 meaningful days milestone
+- 17. 5 meaningful days milestone
+- 18. 7-day milestone / week completion
+- 19. Week completion summary
+- 20. Total interventions count
+- 21. Aggregated interventions across days
+- 22. Earned time summary
+- 23. Saved time summary
+- 24. Most effective intervention detection
+- 25. Insufficient data handling
+- 26. Goal progress integration
+- 27. Contextual recovery insight
+- 28. Tier narrative alignment
+- 29. No duplicate analytics
+- 30. Parent Mode precedence
+- 31. Wallet transactions feed earned time
+- 32. FirstWin completed flag integration
+- 33. Notification calm tone compliance
+- 34. Frequency governor compliance
+- 35. 100% offline operation
+- 36. HabitDay data class recreation
+- 37. HabitMomentumSnapshot reboot resilience
+- 38. Deterministic output
+- 39. Deterministic tier boundaries
+- 40. Performance threshold (<5ms)
