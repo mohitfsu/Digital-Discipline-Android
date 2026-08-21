@@ -482,7 +482,7 @@ fun TodayScreen(
                         ) {
                             Column(modifier = Modifier.padding(10.dp)) {
                                 Text("Active Friction", color = Color(0xFF94A3B8), fontSize = 10.sp)
-                                val activeCount = if (enabledInterventionIds.isNotEmpty()) "${enabledInterventionIds.size}" else "35"
+                                val activeCount = if (enabledInterventionIds.isNotEmpty()) "${enabledInterventionIds.size}" else "${com.digitaldiscipline.spike.intervention.catalog.InterventionCatalog.getAllInterventions().size}"
                                 Text("$activeCount Types", color = Color(0xFF34D399), fontSize = 14.sp, fontWeight = FontWeight.Bold)
                             }
                         }
@@ -491,7 +491,7 @@ fun TodayScreen(
                     Spacer(modifier = Modifier.height(8.dp))
 
                     Text(
-                        text = "Impulse triggers present positive friction (Fitness, Reading, Breathing, Meditation) to earn screen time.",
+                        text = "Impulse triggers present positive friction (Fitness, Creative Flow, Perspective, Breathing) to earn screen time.",
                         color = Color(0xFF64748B),
                         fontSize = 11.sp,
                         lineHeight = 15.sp

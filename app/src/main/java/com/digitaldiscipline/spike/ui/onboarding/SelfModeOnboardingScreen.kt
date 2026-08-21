@@ -127,11 +127,14 @@ fun SelfModeOnboardingScreen(
     val allOnboardingCategories = remember {
         listOf(
             InterventionCategory.MOVEMENT,
+            InterventionCategory.UPPER_BODY,
             InterventionCategory.BREATHING,
             InterventionCategory.MEDITATION,
             InterventionCategory.YOGA_MOBILITY,
             InterventionCategory.PHYSICAL_RESET,
-            InterventionCategory.COGNITIVE
+            InterventionCategory.COGNITIVE,
+            InterventionCategory.CREATIVE_FLOW,
+            InterventionCategory.MINDFUL_PERSPECTIVE
         )
     }
     val selectedCategories = remember {
@@ -834,11 +837,14 @@ private fun Ob6InterventionStyle(
 ) {
     val options = listOf(
         Triple(InterventionCategory.MOVEMENT, "💪", "MOVE" to "Push-ups, squats, movement"),
+        Triple(InterventionCategory.UPPER_BODY, "🧗", "UPPER BODY" to "Pull-ups and upper body"),
         Triple(InterventionCategory.BREATHING, "🫁", "BREATHE" to "Quick breathing resets"),
         Triple(InterventionCategory.MEDITATION, "🧘", "RESET" to "Mindfulness and meditation"),
         Triple(InterventionCategory.YOGA_MOBILITY, "🧘‍♂️", "MOBILITY" to "Yoga and stretches"),
         Triple(InterventionCategory.PHYSICAL_RESET, "💧", "STEP AWAY" to "Water, walking, eyes away"),
-        Triple(InterventionCategory.COGNITIVE, "🧠", "REFLECT" to "Quick cognitive challenges")
+        Triple(InterventionCategory.COGNITIVE, "🧠", "REFLECT" to "Quick cognitive challenges"),
+        Triple(InterventionCategory.CREATIVE_FLOW, "🎨", "CREATE" to "Zen Enso, Haiku, Dexterity, Lateral thinking"),
+        Triple(InterventionCategory.MINDFUL_PERSPECTIVE, "🔮", "PERSPECTIVE" to "Binaural soundscapes, Future Self, Stoic Tarot")
     )
 
     ObScaffold(step = 6, progress = 0.6f, onBack = onBack, onNext = onNext, canContinue = canContinue, ctaLabel = "CONTINUE") {
@@ -855,7 +861,7 @@ private fun Ob6InterventionStyle(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "${selectedCategories.size} of 6 selected",
+                text = "${selectedCategories.size} of ${options.size} selected",
                 color = AccentBlue,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold
@@ -865,11 +871,11 @@ private fun Ob6InterventionStyle(
                 color = Color(0xFF1E293B),
                 border = BorderStroke(1.dp, Color(0xFF334155)),
                 modifier = Modifier.clickable {
-                    if (selectedCategories.size == 6) onClearAll() else onSelectAll()
+                    if (selectedCategories.size == options.size) onClearAll() else onSelectAll()
                 }
             ) {
                 Text(
-                    text = if (selectedCategories.size == 6) "Deselect All" else "Select All",
+                    text = if (selectedCategories.size == options.size) "Deselect All" else "Select All",
                     color = TextPrimary,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
