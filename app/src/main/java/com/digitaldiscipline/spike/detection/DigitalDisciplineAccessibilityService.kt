@@ -39,6 +39,7 @@ class DigitalDisciplineAccessibilityService : AccessibilityService() {
         val SYSTEM_OVERLAY_PACKAGES = setOf(
             "com.android.systemui",
             "android",
+            "com.android.keyguard",
             "com.google.android.inputmethod.latin",
             "com.samsung.android.honeyboard",
             "com.touchtype.swiftkey",

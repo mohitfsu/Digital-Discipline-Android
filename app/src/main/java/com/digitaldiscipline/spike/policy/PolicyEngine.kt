@@ -83,27 +83,17 @@ class PolicyEngine(
                 Intent.ACTION_USER_PRESENT, Intent.ACTION_SCREEN_ON -> {
                     isScreenOff = false
                     val pkg = currentForegroundPackage
-                    if (pkg != null && pkg != context.packageName) {
-                        scope.launch {
-                            val currentModeStr = preferencesManager?.getUserMode()
-                                ?: try { com.digitaldiscipline.spike.DigitalDisciplineApp.instance.preferencesManager.getUserMode() } catch (_: Exception) { UserMode.SELF.name }
-                            val currentUserMode = try { UserMode.valueOf(currentModeStr) } catch (_: Exception) { UserMode.SELF }
-
-                            val resolvedResult = behaviourPolicyResolver?.resolvePolicy(pkg, userMode = currentUserMode)
-                            val rule = when (resolvedResult) {
-                                is PolicyResolutionResult.ParentPolicyMatch -> resolvedResult.appRule
-                                is PolicyResolutionResult.BehaviourPolicyMatch -> resolvedResult.resolvedAppRule
-                                is PolicyResolutionResult.NoMatch -> policyRepository.getRuleForPackage(pkg)
-                                null -> policyRepository.getRuleForPackage(pkg)
-                            }
-                            if (rule != null && rule.isEnabled && rule.mode != RuleMode.ALLOW && walletService != null) {
-                                val nowElapsed = SystemClock.elapsedRealtime()
-                                val sessionResult = walletService.startOrResumeSession(pkg, nowElapsed)
-                                if (sessionResult is SessionStartResult.Started || sessionResult is SessionStartResult.Resumed) {
-                                    startWalletHeartbeat(pkg, rule)
-                                }
-                            }
-                        }
+                    if (pkg != null && pkg != context.packageName && !DigitalDisciplineAccessibilityService.SYSTEM_OVERLAY_PACKAGES.contains(pkg)) {
+                        handleAppLaunchEvent(
+                            AppLaunchEvent(
+                                packageName = pkg,
+                                className = null,
+                                eventTimestamp = System.currentTimeMillis(),
+                                detectionTimestamp = System.currentTimeMillis(),
+                                source = DetectorType.ACCESSIBILITY,
+                                eventType = "TYPE_SCREEN_WAKE_VERIFY"
+                            )
+                        )
                     }
                 }
             }
@@ -183,27 +173,31 @@ class PolicyEngine(
         }
 
         DigitalDisciplineAccessibilityService.onPeriodicPulse = { pkg ->
-            if (pkg == currentForegroundPackage && !isScreenOff) {
+            if (pkg == currentForegroundPackage && !isScreenOff && !DigitalDisciplineAccessibilityService.SYSTEM_OVERLAY_PACKAGES.contains(pkg)) {
                 scope.launch(Dispatchers.IO) {
-                    analyticsRepository.recordUsageSeconds(pkg, 1L)
-                    val nowElapsed = SystemClock.elapsedRealtime()
-                    val updateRes = walletService?.heartbeatOrUpdateSession(nowElapsed)
-                    if (updateRes is SessionUpdateResult.Expired || updateRes is SessionUpdateResult.RebootInvalidated) {
-                        policyRepository.revokeTemporaryUnlock(pkg)
-                        val level = currentEscalationLevelMap[pkg] ?: 1
-                        val currentModeStr = preferencesManager?.getUserMode()
-                            ?: try { com.digitaldiscipline.spike.DigitalDisciplineApp.instance.preferencesManager.getUserMode() } catch (_: Exception) { UserMode.SELF.name }
-                        val currentUserMode = try { UserMode.valueOf(currentModeStr) } catch (_: Exception) { UserMode.SELF }
+                    val currentModeStr = preferencesManager?.getUserMode()
+                        ?: try { com.digitaldiscipline.spike.DigitalDisciplineApp.instance.preferencesManager.getUserMode() } catch (_: Exception) { UserMode.SELF.name }
+                    val currentUserMode = try { UserMode.valueOf(currentModeStr) } catch (_: Exception) { UserMode.SELF }
 
-                        val resolvedResult = behaviourPolicyResolver?.resolvePolicy(pkg, userMode = currentUserMode)
-                        val rule = when (resolvedResult) {
-                            is PolicyResolutionResult.ParentPolicyMatch -> resolvedResult.appRule
-                            is PolicyResolutionResult.BehaviourPolicyMatch -> resolvedResult.resolvedAppRule
-                            is PolicyResolutionResult.NoMatch -> policyRepository.getRuleForPackage(pkg)
-                            null -> policyRepository.getRuleForPackage(pkg)
-                        }
+                    val resolvedResult = behaviourPolicyResolver?.resolvePolicy(pkg, userMode = currentUserMode)
+                    val rule = when (resolvedResult) {
+                        is PolicyResolutionResult.ParentPolicyMatch -> resolvedResult.appRule
+                        is PolicyResolutionResult.BehaviourPolicyMatch -> resolvedResult.resolvedAppRule
+                        is PolicyResolutionResult.NoMatch -> policyRepository.getRuleForPackage(pkg)
+                        null -> policyRepository.getRuleForPackage(pkg)
+                    }
 
-                        if (rule != null) {
+                    if (rule != null && rule.isEnabled && rule.mode != RuleMode.ALLOW) {
+                        val nowElapsed = SystemClock.elapsedRealtime()
+                        val isUnlocked = policyRepository.isTemporarilyUnlocked(pkg, nowElapsed)
+                        val updateRes = walletService?.heartbeatOrUpdateSession(nowElapsed)
+                        val hasAccess = isUnlocked || (updateRes is SessionUpdateResult.Active)
+
+                        if (hasAccess) {
+                            analyticsRepository.recordUsageSeconds(pkg, 1L)
+                        } else {
+                            policyRepository.revokeTemporaryUnlock(pkg)
+                            val level = currentEscalationLevelMap[pkg] ?: 1
                             mainHandler.post {
                                 currentEnforcementStrategy.enforceRestriction(
                                     packageName = pkg,
@@ -424,7 +418,7 @@ class PolicyEngine(
                     }
                 }
             } else {
-                if (pkg != context.packageName) {
+                if (pkg != context.packageName && !DigitalDisciplineAccessibilityService.SYSTEM_OVERLAY_PACKAGES.contains(pkg)) {
                     mainHandler.post {
                         overlayManager.hideOverlay()
                     }
