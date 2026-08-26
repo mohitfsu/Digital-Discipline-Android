@@ -380,7 +380,7 @@ fun TodayScreen(
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Button(
                             onClick = {
                                 activeDailyActionItem = DailyActionItem(
@@ -395,31 +395,40 @@ fun TodayScreen(
                                     rewardSeconds = 600
                                 )
                             },
-                            modifier = Modifier.weight(1f).height(42.dp),
+                            modifier = Modifier.weight(1.2f).height(42.dp),
                             shape = RoundedCornerShape(10.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7))
                         ) {
-                            Text("⚡ 10s Test Challenge", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            Text("⚡ 10s Test", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         }
 
-                        OutlinedButton(
-                            onClick = {
-                                if (availableMins > 0) {
-                                    val topApp = triggers.firstOrNull()?.packageName ?: return@OutlinedButton
+                        if (availableSecTotal > 0) {
+                            OutlinedButton(
+                                onClick = {
                                     coroutineScope.launch(Dispatchers.IO) {
-                                        walletService.startOrResumeSession(topApp)
+                                        walletService.resetWalletBalance("wallet_self")
+                                        com.digitaldiscipline.spike.DigitalDisciplineApp.instance.policyRepository.clearAllTemporaryUnlocks()
                                     }
-                                } else {
+                                },
+                                modifier = Modifier.weight(1f).height(42.dp),
+                                shape = RoundedCornerShape(10.dp),
+                                border = BorderStroke(1.dp, Color(0xFFEF4444).copy(alpha = 0.8f))
+                            ) {
+                                Text("Reset to 0s", color = Color(0xFFEF4444), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                        } else {
+                            OutlinedButton(
+                                onClick = {
                                     coroutineScope.launch(Dispatchers.IO) {
                                         walletService.earnTime(600, "QUICK_TEST", "test_earn_${System.currentTimeMillis()}")
                                     }
-                                }
-                            },
-                            modifier = Modifier.weight(1f).height(42.dp),
-                            shape = RoundedCornerShape(10.dp),
-                            border = BorderStroke(1.dp, Color(0xFF38BDF8))
-                        ) {
-                            Text(if (availableMins > 0) "🔓 Unlock App (10m)" else "+ Add 10m Test", color = Color(0xFF38BDF8), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                },
+                                modifier = Modifier.weight(1f).height(42.dp),
+                                shape = RoundedCornerShape(10.dp),
+                                border = BorderStroke(1.dp, Color(0xFF38BDF8))
+                            ) {
+                                Text("+ Add 10m", color = Color(0xFF38BDF8), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
                         }
                     }
                 }

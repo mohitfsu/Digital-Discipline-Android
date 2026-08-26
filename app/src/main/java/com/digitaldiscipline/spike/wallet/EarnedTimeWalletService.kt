@@ -93,6 +93,18 @@ class EarnedTimeWalletService(
         walletDao.insertOrUpdateWallet(wallet)
     }
 
+    suspend fun resetWalletBalance(walletId: String = "wallet_self") = mutex.withLock {
+        val wallet = getOrCreateWalletInternal(walletId)
+        val updated = wallet.copy(
+            availableSeconds = 0,
+            updatedAt = System.currentTimeMillis()
+        )
+        walletDao.insertOrUpdateWallet(updated)
+        sessionDao.getActiveSession(walletId)?.let { active ->
+            sessionDao.updateSessionStatus(active.sessionId, WalletSessionStatus.ENDED.name, active.consumedSeconds, System.currentTimeMillis())
+        }
+    }
+
     /**
      * Authoritatively adds earned time to wallet ledger with caps and idempotency.
      */

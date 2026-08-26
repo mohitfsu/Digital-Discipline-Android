@@ -44,6 +44,10 @@ class PolicyRepository(
         appRuleDao.deleteAllRules()
     }
 
+    suspend fun clearAllTemporaryUnlocks() {
+        temporaryUnlockDao.clearAllUnlocks()
+    }
+
     suspend fun saveSchedule(schedule: ScheduleEntity): Long {
         return scheduleDao.insertSchedule(schedule)
     }
