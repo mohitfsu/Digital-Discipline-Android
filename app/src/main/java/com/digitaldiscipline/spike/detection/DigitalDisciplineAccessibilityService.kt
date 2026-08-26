@@ -152,9 +152,8 @@ class DigitalDisciplineAccessibilityService : AccessibilityService() {
 
                 val latency = (receiptTime - eventTime).coerceAtLeast(0)
 
-                // Ignore our own app UI transitions and system overlays/keyboards
+                // Ignore our own app UI transitions and system overlays/keyboards without poisoning lastPackageName
                 if (pkgName == packageName || SYSTEM_OVERLAY_PACKAGES.contains(pkgName)) {
-                    lastPackageName = pkgName
                     return
                 }
 

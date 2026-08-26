@@ -173,7 +173,8 @@ class PolicyEngine(
         }
 
         DigitalDisciplineAccessibilityService.onPeriodicPulse = { pkg ->
-            if (pkg == currentForegroundPackage && !isScreenOff && !DigitalDisciplineAccessibilityService.SYSTEM_OVERLAY_PACKAGES.contains(pkg)) {
+            if (!isScreenOff && !DigitalDisciplineAccessibilityService.SYSTEM_OVERLAY_PACKAGES.contains(pkg) && pkg != context.packageName) {
+                currentForegroundPackage = pkg
                 scope.launch(Dispatchers.IO) {
                     val currentModeStr = preferencesManager?.getUserMode()
                         ?: try { com.digitaldiscipline.spike.DigitalDisciplineApp.instance.preferencesManager.getUserMode() } catch (_: Exception) { UserMode.SELF.name }
@@ -381,13 +382,18 @@ class PolicyEngine(
     private fun startWalletHeartbeat(pkg: String, rule: AppRuleEntity) {
         activeWalletHeartbeatJob?.cancel()
         activeWalletHeartbeatJob = scope.launch(Dispatchers.IO) {
-            while (isActive && currentForegroundPackage == pkg && !isScreenOff) {
+            while (isActive && !isScreenOff) {
                 delay(1000L)
-                if (!isActive || currentForegroundPackage != pkg || isScreenOff) break
+                if (!isActive || isScreenOff) break
+
+                val fg = currentForegroundPackage
+                if (fg != pkg && fg != null && !DigitalDisciplineAccessibilityService.SYSTEM_OVERLAY_PACKAGES.contains(fg) && fg != context.packageName) {
+                    break
+                }
 
                 analyticsRepository.recordUsageSeconds(pkg, 1L)
                 val updateRes = walletService?.heartbeatOrUpdateSession(SystemClock.elapsedRealtime())
-                if (updateRes is SessionUpdateResult.Expired || updateRes is SessionUpdateResult.RebootInvalidated) {
+                if (updateRes is SessionUpdateResult.Expired || updateRes is SessionUpdateResult.RebootInvalidated || updateRes is SessionUpdateResult.NoActiveSession) {
                     policyRepository.revokeTemporaryUnlock(pkg)
                     val level = currentEscalationLevelMap[pkg] ?: 1
                     mainHandler.post {
