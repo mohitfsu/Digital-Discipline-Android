@@ -953,7 +953,7 @@ fun SelfDashboardScreen(
                 title = {
                     Column {
                         Text("Select Protected Apps", color = Color.White, fontWeight = FontWeight.Bold)
-                        Text("Selected: ${currentSelectedPackages.size}/5", color = Color(0xFF38BDF8), fontSize = 12.sp)
+                        Text("Selected: ${currentSelectedPackages.size} apps", color = Color(0xFF38BDF8), fontSize = 12.sp)
                     }
                 },
                 text = {
@@ -986,7 +986,7 @@ fun SelfDashboardScreen(
                                             if (isChecked) {
                                                 if (currentSelectedPackages.size > 1) currentSelectedPackages.remove(pkg)
                                             } else {
-                                                if (currentSelectedPackages.size < 5) currentSelectedPackages.add(pkg)
+                                                currentSelectedPackages.add(pkg)
                                             }
                                         }
                                         .padding(vertical = 4.dp),
