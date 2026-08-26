@@ -119,6 +119,7 @@ fun SelfDashboardScreen(
     var showEditGoalDialog by remember { mutableStateOf(false) }
     var showEditTriggersDialog by remember { mutableStateOf(false) }
     var showEditInterventionDialog by remember { mutableStateOf(false) }
+    var showEditRewardDialog by remember { mutableStateOf(false) }
 
     // Deterministic Insights & Intelligence
     val hir = remember(recentEvents) {
@@ -816,9 +817,17 @@ fun SelfDashboardScreen(
                             Text("Replacement Habit", color = Color(0xFF64748B), fontSize = 12.sp)
                             Text(primaryBehaviour?.title ?: "10 Squats", color = Color(0xFF34D399), fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Reward", color = Color(0xFF64748B), fontSize = 12.sp)
-                            Text("${primaryPolicy?.earnedSeconds ?: 600}s Screen Time", color = Color(0xFF38BDF8), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { showEditRewardDialog = true },
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Reward (Tap to edit)", color = Color(0xFF64748B), fontSize = 12.sp)
+                            val rewardSecs = primaryPolicy?.earnedSeconds ?: 300
+                            val rewardMins = rewardSecs / 60
+                            Text("${if (rewardMins > 0) "$rewardMins min" else "${rewardSecs}s"} Screen Time ✏️", color = Color(0xFF38BDF8), fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text("Daily Limit", color = Color(0xFF64748B), fontSize = 12.sp)
@@ -1021,6 +1030,7 @@ fun SelfDashboardScreen(
                                 val currentPolicies = behaviourRepository.getActivePolicies()
                                 val existingBehaviourId = currentPolicies.firstOrNull()?.replacementBehaviourId ?: "beh_pause_10s"
                                 val existingMode = currentPolicies.firstOrNull()?.interventionMode ?: "EARN"
+                                val existingEarnedSeconds = currentPolicies.firstOrNull()?.earnedSeconds ?: 300
 
                                 activeTriggers.forEach {
                                     behaviourRepository.deleteTrigger(it.triggerId)
@@ -1052,7 +1062,7 @@ fun SelfDashboardScreen(
                                             triggerId = triggerId,
                                             replacementBehaviourId = existingBehaviourId,
                                             interventionMode = existingMode,
-                                            earnedSeconds = 600,
+                                            earnedSeconds = existingEarnedSeconds,
                                             enabled = true,
                                             priority = index + 1
                                         )
@@ -1068,6 +1078,85 @@ fun SelfDashboardScreen(
                 },
                 dismissButton = {
                     TextButton(onClick = { showEditTriggersDialog = false }) {
+                        Text("Cancel", color = Color(0xFF94A3B8))
+                    }
+                },
+                containerColor = Color(0xFF0F172A)
+            )
+        }
+
+        // EDIT REWARD DIALOG
+        if (showEditRewardDialog) {
+            val currentRewardSecs = primaryPolicy?.earnedSeconds ?: 300
+            val currentRewardMins = currentRewardSecs / 60
+            val rewardOptions = listOf(
+                5 to "5 minutes (Strict & Controlled)",
+                10 to "10 minutes (Recommended Balanced)",
+                15 to "15 minutes (Generous Access)",
+                30 to "30 minutes (Extended Block)"
+            )
+            var selectedMinutes by remember { mutableIntStateOf(if (currentRewardMins > 0) currentRewardMins else 5) }
+
+            AlertDialog(
+                onDismissRequest = { showEditRewardDialog = false },
+                title = { Text("Choose Reward Access Time", color = Color.White, fontWeight = FontWeight.Bold) },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            "How much intentional screen time do you want to unlock upon completing a friction challenge?",
+                            color = Color(0xFF94A3B8),
+                            fontSize = 12.sp
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        rewardOptions.forEach { (mins, label) ->
+                            val isSelected = mins == selectedMinutes
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = if (isSelected) Color(0xFF0284C7).copy(alpha = 0.25f) else Color(0xFF1E293B),
+                                border = BorderStroke(1.dp, if (isSelected) Color(0xFF38BDF8) else Color(0xFF334155)),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { selectedMinutes = mins }
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    RadioButton(
+                                        selected = isSelected,
+                                        onClick = { selectedMinutes = mins },
+                                        colors = RadioButtonDefaults.colors(selectedColor = Color(0xFF38BDF8))
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = label,
+                                        color = if (isSelected) Color.White else Color(0xFF94A3B8),
+                                        fontSize = 13.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                    )
+                                }
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            coroutineScope.launch(Dispatchers.IO) {
+                                val currentPolicies = behaviourRepository.getActivePolicies()
+                                currentPolicies.forEach { policy ->
+                                    behaviourRepository.savePolicy(policy.copy(earnedSeconds = selectedMinutes * 60))
+                                }
+                            }
+                            showEditRewardDialog = false
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7))
+                    ) {
+                        Text("Save Reward")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showEditRewardDialog = false }) {
                         Text("Cancel", color = Color(0xFF94A3B8))
                     }
                 },
