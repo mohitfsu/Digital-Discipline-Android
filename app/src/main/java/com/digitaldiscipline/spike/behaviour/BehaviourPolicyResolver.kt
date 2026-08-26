@@ -48,15 +48,10 @@ class BehaviourPolicyResolver(
             return if (parentRule != null) PolicyResolutionResult.ParentPolicyMatch(parentRule) else PolicyResolutionResult.NoMatch
         }
 
-        // 2. SELF MODE: Evaluate Active Behaviour Policies
+        // 2. SELF MODE: Evaluate Active Behaviour Policies (Strictly user-selected apps only)
         val activeTriggers = behaviourRepository.getActiveTriggersForPackage(packageName)
         if (activeTriggers.isEmpty()) {
-            // Fallback to parent rule if one exists, else NoMatch
-            return if (parentRule != null && parentRule.isEnabled) {
-                PolicyResolutionResult.ParentPolicyMatch(parentRule)
-            } else {
-                PolicyResolutionResult.NoMatch
-            }
+            return PolicyResolutionResult.NoMatch
         }
 
         val cal = Calendar.getInstance().apply { timeInMillis = currentTimeMillis }

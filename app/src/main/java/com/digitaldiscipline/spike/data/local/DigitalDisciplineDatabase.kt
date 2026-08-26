@@ -297,46 +297,7 @@ abstract class DigitalDisciplineDatabase : RoomDatabase() {
 
             private suspend fun populateDefaults(db: DigitalDisciplineDatabase) {
                 // Phase 2A MVP Default Policies (EARN Mode)
-                val defaultRules = listOf(
-                    AppRuleEntity(
-                        packageName = "com.instagram.android",
-                        appDisplayName = "Instagram",
-                        mode = RuleMode.EARN,
-                        isEnabled = true,
-                        dailyLimitMinutes = 0,
-                        unlockDurationSeconds = 600, // 10 minutes
-                        interventionType = "PAUSE",
-                        pauseDurationSeconds = 10,
-                        breathingDurationSeconds = 30,
-                        squatsTargetCount = 10
-                    ),
-                    AppRuleEntity(
-                        packageName = "com.google.android.youtube",
-                        appDisplayName = "YouTube",
-                        mode = RuleMode.EARN,
-                        isEnabled = true,
-                        dailyLimitMinutes = 0,
-                        unlockDurationSeconds = 900, // 15 minutes
-                        interventionType = "BREATHING",
-                        pauseDurationSeconds = 10,
-                        breathingDurationSeconds = 30,
-                        squatsTargetCount = 10
-                    ),
-                    AppRuleEntity(
-                        packageName = "com.dts.freefireth",
-                        appDisplayName = "Gaming App (Free Fire)",
-                        mode = RuleMode.EARN,
-                        isEnabled = true,
-                        dailyLimitMinutes = 0,
-                        unlockDurationSeconds = 900, // 15 minutes
-                        interventionType = "SQUATS",
-                        pauseDurationSeconds = 10,
-                        breathingDurationSeconds = 30,
-                        squatsTargetCount = 10
-                    )
-                )
-                db.appRuleDao().insertAll(defaultRules)
-
+                // No hardcoded default app rules. Rules are populated on-demand by user onboarding / dashboard.
                 // Initial Protection State
                 db.protectionStateDao().updateProtectionState(
                     ProtectionStateEntity(

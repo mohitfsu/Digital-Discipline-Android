@@ -220,56 +220,7 @@ class PolicyEngine(
     }
 
     fun ensureDefaultRules() {
-        scope.launch {
-            val instagram = policyRepository.getRuleForPackage("com.instagram.android")
-            if (instagram == null) {
-                policyRepository.saveRule(
-                    AppRuleEntity(
-                        packageName = "com.instagram.android",
-                        appDisplayName = "Instagram",
-                        mode = RuleMode.EARN,
-                        isEnabled = true,
-                        unlockDurationSeconds = 300,
-                        interventionType = "PAUSE",
-                        pauseDurationSeconds = 10,
-                        breathingDurationSeconds = 30,
-                        squatsTargetCount = 10
-                    )
-                )
-            }
-            val youtube = policyRepository.getRuleForPackage("com.google.android.youtube")
-            if (youtube == null) {
-                policyRepository.saveRule(
-                    AppRuleEntity(
-                        packageName = "com.google.android.youtube",
-                        appDisplayName = "YouTube",
-                        mode = RuleMode.EARN,
-                        isEnabled = true,
-                        unlockDurationSeconds = 300,
-                        interventionType = "BREATHING",
-                        pauseDurationSeconds = 10,
-                        breathingDurationSeconds = 30,
-                        squatsTargetCount = 10
-                    )
-                )
-            }
-            val freefire = policyRepository.getRuleForPackage("com.dts.freefireth")
-            if (freefire == null) {
-                policyRepository.saveRule(
-                    AppRuleEntity(
-                        packageName = "com.dts.freefireth",
-                        appDisplayName = "Gaming App (Free Fire)",
-                        mode = RuleMode.EARN,
-                        isEnabled = true,
-                        unlockDurationSeconds = 300,
-                        interventionType = "SQUATS",
-                        pauseDurationSeconds = 10,
-                        breathingDurationSeconds = 30,
-                        squatsTargetCount = 10
-                    )
-                )
-            }
-        }
+        // No hardcoded default app rules. Rules are strictly driven by user selections in onboarding or dashboard.
     }
 
     fun start() {

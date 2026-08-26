@@ -122,17 +122,15 @@ fun TargetAppsCard(
                             )
                         )
 
-                        if (rule.packageName != "com.instagram.android" && rule.packageName != "com.google.android.youtube") {
-                            IconButton(
-                                onClick = { onRemovePackage(rule.packageName) },
-                                modifier = Modifier.size(24.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Delete,
-                                    contentDescription = "Remove",
-                                    tint = Color(0xFFEF4444)
-                                )
-                            }
+                        IconButton(
+                            onClick = { onRemovePackage(rule.packageName) },
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = "Remove",
+                                tint = Color(0xFFEF4444)
+                            )
                         }
                     }
                 }

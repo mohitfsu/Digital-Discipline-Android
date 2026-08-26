@@ -405,7 +405,7 @@ fun TodayScreen(
                         OutlinedButton(
                             onClick = {
                                 if (availableMins > 0) {
-                                    val topApp = triggers.firstOrNull()?.packageName ?: "com.google.android.youtube"
+                                    val topApp = triggers.firstOrNull()?.packageName ?: return@OutlinedButton
                                     coroutineScope.launch(Dispatchers.IO) {
                                         walletService.startOrResumeSession(topApp)
                                     }
