@@ -23,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.digitaldiscipline.spike.analytics.LocalAnalyticsRepository
@@ -33,11 +34,11 @@ import com.digitaldiscipline.spike.policy.PolicyEngine
 import com.digitaldiscipline.spike.policy.PolicyRepository
 import com.digitaldiscipline.spike.security.ParentPinManager
 import com.digitaldiscipline.spike.security.PinVerificationResult
+import com.digitaldiscipline.spike.cloud.PairingManager
 import com.digitaldiscipline.spike.policy.profiles.ProfileTemplateManager
 import com.digitaldiscipline.spike.sync.SyncManager
 import com.digitaldiscipline.spike.DigitalDisciplineApp
 import com.digitaldiscipline.spike.ui.dashboard.components.GeofenceBuilderCard
-import com.digitaldiscipline.spike.ui.dashboard.components.ProfileSwitcherCard
 import com.digitaldiscipline.spike.ui.dashboard.components.ScheduleBuilderCard
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -55,6 +56,7 @@ fun ParentDashboardScreen(
     preferencesManager: PreferencesManager,
     syncManager: SyncManager,
     pinManager: ParentPinManager,
+    pairingManager: PairingManager,
     isA11yActive: Boolean,
     isOverlayActive: Boolean,
     onNavigateToCloudHub: () -> Unit,
@@ -77,6 +79,10 @@ fun ParentDashboardScreen(
     val autoBlockSocial by preferencesManager.autoBlockSocialFlow.collectAsState(initial = false)
     val autoBlockStreaming by preferencesManager.autoBlockStreamingFlow.collectAsState(initial = false)
     var showParentModeSwitcherDialog by remember { mutableStateOf(false) }
+
+    var showGeneratePairCodeDialog by remember { mutableStateOf(false) }
+    var activePairingCode by remember { mutableStateOf<String?>(null) }
+    var isGeneratingPairCode by remember { mutableStateOf(false) }
 
     var showPinDialogForAction by remember { mutableStateOf<(() -> Unit)?>(null) }
     var enteredPin by remember { mutableStateOf("") }
@@ -337,12 +343,35 @@ fun ParentDashboardScreen(
                         }
                     } else {
                         Button(
-                            onClick = onNavigateToPairing,
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7)),
+                            onClick = {
+                                isGeneratingPairCode = true
+                                coroutineScope.launch {
+                                    val deviceId = preferencesManager.getOrCreateDeviceId()
+                                    val famId = pairedFamilyId ?: "family_$deviceId"
+                                    val res = pairingManager.generatePairingCode(
+                                        familyId = famId,
+                                        childId = "child_1",
+                                        childName = "Child Phone",
+                                        parentId = deviceId
+                                    )
+                                    isGeneratingPairCode = false
+                                    if (res.isSuccess) {
+                                        activePairingCode = res.getOrNull()
+                                        showGeneratePairCodeDialog = true
+                                    } else {
+                                        Toast.makeText(context, "Failed to generate code: ${res.exceptionOrNull()?.message}", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
                             shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.weight(1.2f).padding(end = 4.dp).height(38.dp)
+                            modifier = Modifier.weight(1.3f).padding(end = 4.dp).height(38.dp)
                         ) {
-                            Text("🔗 PAIR WITH CODE", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            if (isGeneratingPairCode) {
+                                CircularProgressIndicator(color = Color(0xFF0F172A), modifier = Modifier.size(16.dp))
+                            } else {
+                                Text("🔑 GENERATE PAIR CODE", color = Color(0xFF0F172A), fontSize = 11.sp, fontWeight = FontWeight.Black)
+                            }
                         }
                     }
 
@@ -1199,6 +1228,74 @@ fun ParentDashboardScreen(
                     pinError = null
                 }) {
                     Text("Cancel", color = Color(0xFF94A3B8))
+                }
+            },
+            containerColor = Color(0xFF0F172A)
+        )
+    }
+
+    // Single-Use Pair Code Generation Dialog
+    if (showGeneratePairCodeDialog && activePairingCode != null) {
+        AlertDialog(
+            onDismissRequest = { showGeneratePairCodeDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("🔗", fontSize = 20.sp)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Pair Child Device", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            },
+            text = {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)
+                ) {
+                    Text(
+                        text = "Enter this 6-digit code on your child's phone:",
+                        color = Color(0xFF94A3B8),
+                        fontSize = 13.sp,
+                        textAlign = TextAlign.Center
+                    )
+
+                    Surface(
+                        color = Color(0xFF1E293B),
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(2.dp, Color(0xFF10B981)),
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = activePairingCode!!,
+                            color = Color(0xFF10B981),
+                            fontSize = 36.sp,
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = 6.sp,
+                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                            modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp)
+                        )
+                    }
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color(0xFF1E293B).copy(alpha = 0.5f))
+                            .padding(10.dp)
+                    ) {
+                        Text("📲 Steps on Child's Phone:", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text("1. Open Digital Discipline on Child Phone.\n2. Tap '👶 Child Phone' on start screen.\n3. Tap 'Enter 6-Digit Pairing Code'.\n4. Type this code to link instantly.", color = Color(0xFF94A3B8), fontSize = 11.sp, lineHeight = 16.sp)
+                    }
+
+                    Text("⏱️ Code valid for 15 minutes • Single-use", color = Color(0xFF64748B), fontSize = 11.sp)
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showGeneratePairCodeDialog = false },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981))
+                ) {
+                    Text("Done", color = Color(0xFF0F172A), fontWeight = FontWeight.Bold)
                 }
             },
             containerColor = Color(0xFF0F172A)

@@ -583,6 +583,7 @@ class MainActivity : ComponentActivity() {
                                         preferencesManager = preferencesManager,
                                         syncManager = syncManager,
                                         pinManager = pinManager,
+                                        pairingManager = pairingManager,
                                         isA11yActive = isAccessibilityGrantedState.value,
                                         isOverlayActive = isOverlayGrantedState.value,
                                         onNavigateToCloudHub = { currentScreen = AppScreen.CLOUD_HUB },
