@@ -170,14 +170,28 @@ fun InterventionOverlayContent(
                 def.id.contains("LUNGE") || def.id.contains("PLANK") ||
                 def.id == "STAND_UP" || def.id.contains("SHAKE") ||
                 def.id.contains("TREE") || def.id.contains("MOUNTAIN") ||
-                def.id.contains("CALF")
+                def.id.contains("CALF") || def.id.contains("JUMPING_JACKS") ||
+                def.id.contains("HIGH_KNEES") || def.id.contains("WALL_SIT")
+
+        val isCognitiveOrInteractive = def.category == InterventionCategory.COGNITIVE ||
+                def.category == InterventionCategory.CREATIVE_FLOW ||
+                def.category == InterventionCategory.MINDFUL_PERSPECTIVE ||
+                def.category == InterventionCategory.PHYSICAL_RESET ||
+                def.validationType == ValidationType.INTERACTION_VALIDATED ||
+                def.id == "SCAVENGER_HUNT" || def.id == "IMAGE_PUZZLE_3X3" ||
+                def.id == "ZEN_ENSO_CANVAS" || def.id == "HAND_MUDRA_DEXTERITY" ||
+                def.id == "DIVERGENT_THINKING" || def.id == "HAIKU_CRAFTER" ||
+                def.id == "BINAURAL_SOUNDSCAPE" || def.id == "FUTURE_SELF_CAPSULE" ||
+                def.id == "STOIC_TAROT_DECIDER" || def.id.contains("STROOP") ||
+                def.id.contains("MATH") || def.id.contains("MEMORY") ||
+                def.id.contains("PATTERN") || def.id.contains("TAP") ||
+                def.id.contains("REACTION") || def.id.contains("RECALL") ||
+                def.id.contains("READING") || def.id.contains("WRITING") ||
+                def.id.contains("PUZZLE") || def.id.contains("SCAVENGER")
 
         if (isCameraEligible) {
             activeTab = ActiveInterventionTab.CAMERA_POSE_WORKOUT
-        } else if (def.category == InterventionCategory.COGNITIVE ||
-            def.category == InterventionCategory.CREATIVE_FLOW ||
-            def.category == InterventionCategory.MINDFUL_PERSPECTIVE ||
-            def.validationType == ValidationType.INTERACTION_VALIDATED) {
+        } else if (isCognitiveOrInteractive) {
             activeTab = ActiveInterventionTab.COGNITIVE_CHALLENGE
         } else if (def.category == InterventionCategory.BREATHING || def.id.contains("BREATH")) {
             currentBreathingSeconds = if (def.defaultDurationSeconds > 0) kotlin.math.max(30, def.defaultDurationSeconds) else 30
