@@ -490,15 +490,15 @@ open class PreferencesManager(private val context: Context? = null) {
 
     val autoBlockGamesFlow: Flow<Boolean> = (context?.dataStore?.data ?: kotlinx.coroutines.flow.flowOf(emptyPreferences()))
         .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
-        .map { it[KEY_AUTO_BLOCK_GAMES] ?: false }
+        .map { it[KEY_AUTO_BLOCK_GAMES] ?: true }
 
     val autoBlockSocialFlow: Flow<Boolean> = (context?.dataStore?.data ?: kotlinx.coroutines.flow.flowOf(emptyPreferences()))
         .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
-        .map { it[KEY_AUTO_BLOCK_SOCIAL] ?: false }
+        .map { it[KEY_AUTO_BLOCK_SOCIAL] ?: true }
 
     val autoBlockStreamingFlow: Flow<Boolean> = (context?.dataStore?.data ?: kotlinx.coroutines.flow.flowOf(emptyPreferences()))
         .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
-        .map { it[KEY_AUTO_BLOCK_STREAMING] ?: false }
+        .map { it[KEY_AUTO_BLOCK_STREAMING] ?: true }
 
     val officeStartHourFlow: Flow<Int> = (context?.dataStore?.data ?: kotlinx.coroutines.flow.flowOf(emptyPreferences()))
         .catch { if (it is IOException) emit(emptyPreferences()) else throw it }

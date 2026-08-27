@@ -565,6 +565,7 @@ class MainActivity : ComponentActivity() {
                                         context = this@MainActivity,
                                         coroutineScope = lifecycleScope,
                                         preferencesManager = preferencesManager,
+                                        walletService = walletService,
                                         pinManager = pinManager,
                                         syncManager = syncManager,
                                         isA11yActive = isAccessibilityGrantedState.value,

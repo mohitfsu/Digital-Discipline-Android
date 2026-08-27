@@ -1,10 +1,14 @@
 package com.digitaldiscipline.spike.ui.onboarding
 
+import android.Manifest
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.provider.Settings
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -12,6 +16,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -27,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -36,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.core.content.ContextCompat
 import com.digitaldiscipline.spike.behaviour.templates.DistractionAppRecommendation
 import com.digitaldiscipline.spike.behaviour.templates.GoalTemplateRepository
 import com.digitaldiscipline.spike.cloud.PairingManager
@@ -44,22 +51,17 @@ import com.digitaldiscipline.spike.data.local.entities.AppRuleEntity
 import com.digitaldiscipline.spike.data.local.entities.RuleMode
 import com.digitaldiscipline.spike.data.local.entities.TriggerCategory
 import com.digitaldiscipline.spike.data.preferences.PreferencesManager
+import com.digitaldiscipline.spike.intervention.catalog.InterventionCatalog
+import com.digitaldiscipline.spike.intervention.model.InterventionCategory
+import com.digitaldiscipline.spike.intervention.model.InterventionDefinition
 import com.digitaldiscipline.spike.policy.PolicyRepository
 import com.digitaldiscipline.spike.security.ParentPinManager
 import com.digitaldiscipline.spike.sync.SyncManager
 import com.digitaldiscipline.spike.ui.challenges.*
+import com.digitaldiscipline.spike.ui.vision.CameraPoseWorkoutScreen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-
-data class ChallengeItem(
-    val id: String,
-    val emoji: String,
-    val title: String,
-    val subtitle: String,
-    val ageSuitability: String,
-    val isEnabledByDefault: Boolean = true
-)
 
 @Composable
 fun ChildOnboardingScreen(
@@ -121,7 +123,6 @@ fun ChildOnboardingScreen(
 
     val selectedApps = remember {
         mutableStateListOf<DistractionAppRecommendation>().apply {
-            // Auto-select gaming, social and streaming by default
             addAll(installedApps.filter {
                 it.category == TriggerCategory.GAMING ||
                 it.category == TriggerCategory.SOCIAL_MEDIA ||
@@ -130,18 +131,37 @@ fun ChildOnboardingScreen(
         }
     }
 
-    // Step 4 State: Interactive Challenge Studio
-    val availableChallenges = remember {
-        listOf(
-            ChallengeItem("IMAGE_PUZZLE_3X3", "🧩", "9-Piece Image Puzzle", "30-sec sliding puzzle • Resets if time expires", "All Ages", true),
-            ChallengeItem("THREE_BREATHS", "🫁", "3 Mindful Breaths", "Calming breathing reset before screen time", "All Ages", true),
-            ChallengeItem("MATH_SPRINT", "🧠", "Mental Math Quiz", "Quick arithmetic questions to sharpen focus", "Age 7+", true),
-            ChallengeItem("MOVEMENT_10", "💪", "10 Jumping Jacks / Squats", "Physical movement break before digital play", "Age 6+", true),
-            ChallengeItem("PHYSICAL_RESET", "💧", "Physical & Eye Reset", "Drink water and look away from screen", "All Ages", true)
+    // Step 4 State: Interactive Challenge Studio (All 49 catalog items)
+    val allCatalogInterventions = remember { InterventionCatalog.getAllInterventions() }
+    val enabledInterventionIds = remember {
+        mutableStateListOf<String>().apply {
+            // Enable all catalog IDs by default so parent/child has full access
+            addAll(allCatalogInterventions.map { it.id })
+        }
+    }
+
+    var selectedCategoryFilter by remember { mutableStateOf<InterventionCategory?>(null) }
+    val filteredInterventions = remember(selectedCategoryFilter) {
+        if (selectedCategoryFilter == null) allCatalogInterventions
+        else allCatalogInterventions.filter { it.category == selectedCategoryFilter }
+    }
+
+    var activeDemoIntervention by remember { mutableStateOf<InterventionDefinition?>(null) }
+
+    // Camera permission launcher for movement demo
+    var hasCameraPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
         )
     }
-    val enabledChallengeIds = remember { mutableStateListOf("IMAGE_PUZZLE_3X3", "THREE_BREATHS", "MATH_SPRINT", "MOVEMENT_10", "PHYSICAL_RESET") }
-    var activeDemoChallengeId by remember { mutableStateOf<String?>(null) }
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        hasCameraPermission = granted
+        if (!granted) {
+            Toast.makeText(context, "Camera permission needed for live skeletal tracking.", Toast.LENGTH_SHORT).show()
+        }
+    }
 
     // Step 5 State: Parent PIN
     var parentPinText by remember { mutableStateOf("") }
@@ -188,7 +208,7 @@ fun ChildOnboardingScreen(
                         1 -> "Pair with Parent"
                         2 -> "Shield Permissions"
                         3 -> "Scanned Apps & Rules"
-                        4 -> "Interactive Challenge Studio"
+                        4 -> "Interactive Challenge Studio (${allCatalogInterventions.size} Challenges)"
                         5 -> "Parent PIN Seal"
                         else -> ""
                     },
@@ -326,7 +346,6 @@ fun ChildOnboardingScreen(
 
                         Spacer(modifier = Modifier.height(20.dp))
 
-                        // Permission 1: Accessibility
                         PermissionCard(
                             number = "1",
                             title = "Accessibility Protection",
@@ -337,7 +356,6 @@ fun ChildOnboardingScreen(
 
                         Spacer(modifier = Modifier.height(10.dp))
 
-                        // Permission 2: Display Over Other Apps
                         PermissionCard(
                             number = "2",
                             title = "Display Over Other Apps (Overlay)",
@@ -356,7 +374,6 @@ fun ChildOnboardingScreen(
 
                         Spacer(modifier = Modifier.height(10.dp))
 
-                        // Permission 3: Usage Access
                         PermissionCard(
                             number = "3",
                             title = "Usage Access",
@@ -458,7 +475,7 @@ fun ChildOnboardingScreen(
                 }
 
                 // ─────────────────────────────────────────────────────────────
-                // STEP 4: INTERACTIVE CHALLENGE STUDIO (LIVE DEMO)
+                // STEP 4: INTERACTIVE CHALLENGE STUDIO (FULL 49 CATALOG)
                 // ─────────────────────────────────────────────────────────────
                 4 -> {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -473,87 +490,182 @@ fun ChildOnboardingScreen(
                         Spacer(modifier = Modifier.height(4.dp))
 
                         Text(
-                            text = "Test and choose which challenges your child can complete to earn screen time:",
+                            text = "Test and select from all ${allCatalogInterventions.size} challenges your child can use to earn screen time:",
                             color = Color(0xFF94A3B8),
                             fontSize = 12.sp,
                             textAlign = TextAlign.Center
                         )
 
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(14.dp))
 
-                        availableChallenges.forEach { challenge ->
-                            val isEnabled = enabledChallengeIds.contains(challenge.id)
-                            Card(
+                        // Category Filter Chips
+                        LazyRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            item {
+                                FilterChip(
+                                    selected = selectedCategoryFilter == null,
+                                    onClick = { selectedCategoryFilter = null },
+                                    label = { Text("All (${allCatalogInterventions.size})") },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = Color(0xFF38BDF8),
+                                        selectedLabelColor = Color(0xFF0F172A)
+                                    )
+                                )
+                            }
+                            item {
+                                FilterChip(
+                                    selected = selectedCategoryFilter == InterventionCategory.COGNITIVE,
+                                    onClick = { selectedCategoryFilter = InterventionCategory.COGNITIVE },
+                                    label = { Text("🧩 Puzzles & Math") },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = Color(0xFF38BDF8),
+                                        selectedLabelColor = Color(0xFF0F172A)
+                                    )
+                                )
+                            }
+                            item {
+                                FilterChip(
+                                    selected = selectedCategoryFilter == InterventionCategory.MOVEMENT,
+                                    onClick = { selectedCategoryFilter = InterventionCategory.MOVEMENT },
+                                    label = { Text("💪 Movement & AI") },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = Color(0xFF38BDF8),
+                                        selectedLabelColor = Color(0xFF0F172A)
+                                    )
+                                )
+                            }
+                            item {
+                                FilterChip(
+                                    selected = selectedCategoryFilter == InterventionCategory.BREATHING,
+                                    onClick = { selectedCategoryFilter = InterventionCategory.BREATHING },
+                                    label = { Text("🫁 Breathing") },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = Color(0xFF38BDF8),
+                                        selectedLabelColor = Color(0xFF0F172A)
+                                    )
+                                )
+                            }
+                            item {
+                                FilterChip(
+                                    selected = selectedCategoryFilter == InterventionCategory.YOGA_MOBILITY,
+                                    onClick = { selectedCategoryFilter = InterventionCategory.YOGA_MOBILITY },
+                                    label = { Text("🧘‍♂️ Yoga & Stretches") },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = Color(0xFF38BDF8),
+                                        selectedLabelColor = Color(0xFF0F172A)
+                                    )
+                                )
+                            }
+                            item {
+                                FilterChip(
+                                    selected = selectedCategoryFilter == InterventionCategory.PHYSICAL_RESET,
+                                    onClick = { selectedCategoryFilter = InterventionCategory.PHYSICAL_RESET },
+                                    label = { Text("💧 Physical Reset") },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = Color(0xFF38BDF8),
+                                        selectedLabelColor = Color(0xFF0F172A)
+                                    )
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(320.dp)
+                                .border(1.dp, Color(0xFF1E293B), RoundedCornerShape(14.dp)),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+                            shape = RoundedCornerShape(14.dp)
+                        ) {
+                            LazyColumn(
                                 modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(bottom = 10.dp)
-                                    .border(
-                                        1.dp,
-                                        if (isEnabled) Color(0xFF38BDF8).copy(alpha = 0.5f) else Color(0xFF1E293B),
-                                        RoundedCornerShape(14.dp)
-                                    ),
-                                colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
-                                shape = RoundedCornerShape(14.dp)
+                                    .fillMaxSize()
+                                    .padding(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Column(modifier = Modifier.padding(14.dp)) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
+                                items(filteredInterventions) { item ->
+                                    val isEnabled = enabledInterventionIds.contains(item.id)
+                                    Card(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .border(
+                                                1.dp,
+                                                if (isEnabled) Color(0xFF38BDF8).copy(alpha = 0.4f) else Color(0xFF1E293B),
+                                                RoundedCornerShape(10.dp)
+                                            ),
+                                        colors = CardDefaults.cardColors(containerColor = Color(0xFF111827)),
+                                        shape = RoundedCornerShape(10.dp)
                                     ) {
-                                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                                            Text(challenge.emoji, fontSize = 24.sp)
-                                            Spacer(modifier = Modifier.width(10.dp))
-                                            Column {
-                                                Text(challenge.title, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                                                Text(challenge.subtitle, color = Color(0xFF94A3B8), fontSize = 11.sp)
-                                            }
-                                        }
-
-                                        Switch(
-                                            checked = isEnabled,
-                                            onCheckedChange = { checked ->
-                                                if (checked) {
-                                                    if (!enabledChallengeIds.contains(challenge.id)) enabledChallengeIds.add(challenge.id)
-                                                } else {
-                                                    enabledChallengeIds.remove(challenge.id)
+                                        Column(modifier = Modifier.padding(10.dp)) {
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                                                    Text(item.iconEmoji, fontSize = 20.sp)
+                                                    Spacer(modifier = Modifier.width(8.dp))
+                                                    Column {
+                                                        Text(item.title, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                                        Text(item.description, color = Color(0xFF94A3B8), fontSize = 10.sp, maxLines = 1)
+                                                    }
                                                 }
-                                            },
-                                            colors = SwitchDefaults.colors(
-                                                checkedThumbColor = Color.White,
-                                                checkedTrackColor = Color(0xFF38BDF8)
-                                            )
-                                        )
-                                    }
 
-                                    Spacer(modifier = Modifier.height(10.dp))
+                                                Switch(
+                                                    checked = isEnabled,
+                                                    onCheckedChange = { checked ->
+                                                        if (checked) {
+                                                            if (!enabledInterventionIds.contains(item.id)) enabledInterventionIds.add(item.id)
+                                                        } else {
+                                                            enabledInterventionIds.remove(item.id)
+                                                        }
+                                                    },
+                                                    colors = SwitchDefaults.colors(
+                                                        checkedThumbColor = Color.White,
+                                                        checkedTrackColor = Color(0xFF38BDF8)
+                                                    )
+                                                )
+                                            }
 
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Surface(
-                                            color = Color(0xFF1E293B),
-                                            shape = RoundedCornerShape(6.dp)
-                                        ) {
-                                            Text(
-                                                text = "Suitability: ${challenge.ageSuitability}",
-                                                color = Color(0xFF38BDF8),
-                                                fontSize = 10.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                            )
-                                        }
+                                            Spacer(modifier = Modifier.height(6.dp))
 
-                                        Button(
-                                            onClick = { activeDemoChallengeId = challenge.id },
-                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E293B)),
-                                            border = BorderStroke(1.dp, Color(0xFF38BDF8)),
-                                            shape = RoundedCornerShape(8.dp),
-                                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
-                                        ) {
-                                            Text("▶ TRY LIVE DEMO", color = Color(0xFF38BDF8), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Surface(
+                                                    color = Color(0xFF1E293B),
+                                                    shape = RoundedCornerShape(4.dp)
+                                                ) {
+                                                    Text(
+                                                        text = "Category: ${item.category.name}",
+                                                        color = Color(0xFF38BDF8),
+                                                        fontSize = 9.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                                    )
+                                                }
+
+                                                Button(
+                                                    onClick = {
+                                                        if (item.category == InterventionCategory.MOVEMENT && !hasCameraPermission) {
+                                                            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                                                        }
+                                                        activeDemoIntervention = item
+                                                    },
+                                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E293B)),
+                                                    border = BorderStroke(1.dp, Color(0xFF38BDF8)),
+                                                    shape = RoundedCornerShape(6.dp),
+                                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                                                ) {
+                                                    Text("▶ TRY LIVE DEMO", color = Color(0xFF38BDF8), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -751,11 +863,11 @@ fun ChildOnboardingScreen(
                                 step = 4
                             }
                             4 -> {
-                                if (enabledChallengeIds.isEmpty()) {
+                                if (enabledInterventionIds.isEmpty()) {
                                     Toast.makeText(context, "Please enable at least 1 challenge.", Toast.LENGTH_SHORT).show()
                                 } else {
                                     coroutineScope.launch(Dispatchers.IO) {
-                                        preferencesManager.setEnabledInterventions(enabledChallengeIds.toSet())
+                                        preferencesManager.setEnabledInterventions(enabledInterventionIds.toSet())
                                     }
                                     step = 5
                                 }
@@ -768,6 +880,10 @@ fun ChildOnboardingScreen(
                                 } else {
                                     pinManager.setPin(parentPinText)
                                     coroutineScope.launch(Dispatchers.IO) {
+                                        // Activate default blocking for family mode
+                                        preferencesManager.setAutoBlockGames(true)
+                                        preferencesManager.setAutoBlockSocial(true)
+                                        preferencesManager.setAutoBlockStreaming(true)
                                         preferencesManager.setUserMode(com.digitaldiscipline.spike.data.local.entities.UserMode.CHILD.name)
                                         preferencesManager.setDeviceRole("CHILD_DEVICE")
                                         preferencesManager.setOnboardingCompleted(true)
@@ -810,17 +926,18 @@ fun ChildOnboardingScreen(
         }
     }
 
-    // Interactive Demo Pop-Up Dialog
-    if (activeDemoChallengeId != null) {
+    // Live Interactive Challenge Demo Modal
+    val demoItem = activeDemoIntervention
+    if (demoItem != null) {
         Dialog(
-            onDismissRequest = { activeDemoChallengeId = null },
+            onDismissRequest = { activeDemoIntervention = null },
             properties = DialogProperties(usePlatformDefaultWidth = false)
         ) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(Color(0xFF090D16).copy(alpha = 0.95f))
-                    .padding(20.dp),
+                    .padding(16.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Card(
@@ -831,7 +948,7 @@ fun ChildOnboardingScreen(
                     shape = RoundedCornerShape(20.dp)
                 ) {
                     Column(
-                        modifier = Modifier.padding(18.dp),
+                        modifier = Modifier.padding(16.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Row(
@@ -840,20 +957,21 @@ fun ChildOnboardingScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "🎮 Live Challenge Demo",
+                                text = "🎮 ${demoItem.title} Demo",
                                 color = Color(0xFF38BDF8),
-                                fontSize = 14.sp,
+                                fontSize = 15.sp,
                                 fontWeight = FontWeight.Bold
                             )
-                            IconButton(onClick = { activeDemoChallengeId = null }) {
+                            IconButton(onClick = { activeDemoIntervention = null }) {
                                 Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
                             }
                         }
 
                         Spacer(modifier = Modifier.height(10.dp))
 
-                        when (activeDemoChallengeId) {
-                            "IMAGE_PUZZLE_3X3" -> {
+                        // Route to respective live challenge engine
+                        when {
+                            demoItem.id == "IMAGE_PUZZLE_3X3" -> {
                                 ImageTilePuzzleGame(
                                     timeLimitSeconds = 30,
                                     onSuccess = {
@@ -861,23 +979,54 @@ fun ChildOnboardingScreen(
                                     }
                                 )
                             }
-                            "MATH_SPRINT" -> {
+                            demoItem.id == "MATH_SPRINT" || demoItem.id == "SIMPLE_MATH" -> {
                                 MathSprintGame(
                                     onSuccess = {
                                         Toast.makeText(context, "Math Sprint completed!", Toast.LENGTH_SHORT).show()
                                     }
                                 )
                             }
-                            "THREE_BREATHS" -> {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text("🫁 3 Mindful Breaths", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                            demoItem.category == InterventionCategory.MOVEMENT -> {
+                                if (hasCameraPermission) {
+                                    CameraPoseWorkoutScreen(
+                                        exerciseId = demoItem.id,
+                                        exerciseTitle = demoItem.title,
+                                        targetReps = if (demoItem.defaultReps > 0) demoItem.defaultReps else 10,
+                                        targetHoldSeconds = if (demoItem.defaultDurationSeconds > 0) demoItem.defaultDurationSeconds else 30,
+                                        onComplete = {
+                                            Toast.makeText(context, "Workout completed with Camera AI!", Toast.LENGTH_SHORT).show()
+                                            activeDemoIntervention = null
+                                        },
+                                        onDismiss = { activeDemoIntervention = null }
+                                    )
+                                } else {
+                                    Column(
+                                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Text("📷 Camera Permission Required", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Text("Camera access is needed for live on-device skeletal pose tracking & rep counting.", color = Color(0xFF94A3B8), fontSize = 12.sp, textAlign = TextAlign.Center)
+                                        Spacer(modifier = Modifier.height(16.dp))
+                                        Button(
+                                            onClick = { cameraPermissionLauncher.launch(Manifest.permission.CAMERA) },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF38BDF8))
+                                        ) {
+                                            Text("GRANT CAMERA ACCESS", color = Color(0xFF0F172A), fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+                                }
+                            }
+                            demoItem.category == InterventionCategory.BREATHING || demoItem.category == InterventionCategory.MEDITATION -> {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(16.dp)) {
+                                    Text(demoItem.iconEmoji, fontSize = 48.sp)
+                                    Spacer(modifier = Modifier.height(10.dp))
+                                    Text(demoItem.calmPrompt, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
                                     Spacer(modifier = Modifier.height(8.dp))
-                                    Text("Slow, deep breathing centers attention before digital screen time.", color = Color(0xFF94A3B8), fontSize = 12.sp, textAlign = TextAlign.Center)
-                                    Spacer(modifier = Modifier.height(20.dp))
-                                    Text("Inhale slowly... Hold... Exhale fully...", color = Color(0xFF38BDF8), fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                                    Text(demoItem.instructions, color = Color(0xFF94A3B8), fontSize = 12.sp, textAlign = TextAlign.Center)
                                     Spacer(modifier = Modifier.height(20.dp))
                                     Button(
-                                        onClick = { activeDemoChallengeId = null },
+                                        onClick = { activeDemoIntervention = null },
                                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981))
                                     ) {
                                         Text("Done Testing")
@@ -885,13 +1034,15 @@ fun ChildOnboardingScreen(
                                 }
                             }
                             else -> {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text("💪 Movement & Reset Challenge", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(16.dp)) {
+                                    Text(demoItem.iconEmoji, fontSize = 48.sp)
+                                    Spacer(modifier = Modifier.height(10.dp))
+                                    Text(demoItem.title, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
                                     Spacer(modifier = Modifier.height(8.dp))
-                                    Text("Perform 10 jumping jacks or bodyweight squats.", color = Color(0xFF94A3B8), fontSize = 12.sp, textAlign = TextAlign.Center)
+                                    Text(demoItem.instructions, color = Color(0xFF94A3B8), fontSize = 12.sp, textAlign = TextAlign.Center)
                                     Spacer(modifier = Modifier.height(20.dp))
                                     Button(
-                                        onClick = { activeDemoChallengeId = null },
+                                        onClick = { activeDemoIntervention = null },
                                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981))
                                     ) {
                                         Text("Done Testing")
