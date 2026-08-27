@@ -467,40 +467,53 @@ class ExercisePoseClassifier(
     }
 
     // -------------------------------------------------------------------------
-    // 8. CALF RAISES
+    // 8. CALF RAISES (Multi-Point Ankle Plantarflexion + Torso Elevation)
     // -------------------------------------------------------------------------
     private fun classifyCalfRaises(pose: Pose): PoseClassificationResult {
         val leftAnkle = pose.getPoseLandmark(PoseLandmark.LEFT_ANKLE)
         val rightAnkle = pose.getPoseLandmark(PoseLandmark.RIGHT_ANKLE)
-        val leftKnee = pose.getPoseLandmark(PoseLandmark.LEFT_KNEE)
-        val rightKnee = pose.getPoseLandmark(PoseLandmark.RIGHT_KNEE)
+        val leftShoulder = pose.getPoseLandmark(PoseLandmark.LEFT_SHOULDER)
+        val rightShoulder = pose.getPoseLandmark(PoseLandmark.RIGHT_SHOULDER)
         val leftHip = pose.getPoseLandmark(PoseLandmark.LEFT_HIP)
         val rightHip = pose.getPoseLandmark(PoseLandmark.RIGHT_HIP)
+        val nose = pose.getPoseLandmark(PoseLandmark.NOSE)
 
-        val hasLeftAnkle = leftAnkle != null && leftAnkle.inFrameLikelihood > 0.35f
-        val hasRightAnkle = rightAnkle != null && rightAnkle.inFrameLikelihood > 0.35f
+        val hasLeftAnkle = leftAnkle != null && leftAnkle.inFrameLikelihood > 0.25f
+        val hasRightAnkle = rightAnkle != null && rightAnkle.inFrameLikelihood > 0.25f
+        val hasAnkles = hasLeftAnkle || hasRightAnkle
 
-        if (!hasLeftAnkle && !hasRightAnkle) {
+        val shoulder = leftShoulder ?: rightShoulder
+        val hip = leftHip ?: rightHip
+
+        // Reference point for elevation: prefer ankles if visible, otherwise track shoulders/head
+        val currentElevationY: Float? = when {
+            hasLeftAnkle && hasRightAnkle -> (leftAnkle!!.position.y + rightAnkle!!.position.y) / 2f
+            hasLeftAnkle -> leftAnkle!!.position.y
+            hasRightAnkle -> rightAnkle!!.position.y
+            shoulder != null -> shoulder.position.y
+            nose != null -> nose.position.y
+            else -> null
+        }
+
+        if (currentElevationY == null) {
             return PoseClassificationResult(
                 currentReps = reps,
                 targetReps = effectiveTargetReps,
                 isHolding = false,
                 holdSeconds = 0,
                 targetHoldSeconds = 0,
-                feedbackMessage = "🦶 Step back so feet & ankles are visible in frame",
+                feedbackMessage = "🧍 Stand in camera view",
                 isCompleted = false
             )
         }
 
-        val currentAnkleY = when {
-            hasLeftAnkle && hasRightAnkle -> (leftAnkle!!.position.y + rightAnkle!!.position.y) / 2f
-            hasLeftAnkle -> leftAnkle!!.position.y
-            else -> rightAnkle!!.position.y
-        }
+        val torsoLength = if (shoulder != null && hip != null) abs(hip.position.y - shoulder.position.y).coerceAtLeast(60f) else 120f
+        val liftThreshold = if (hasAnkles) 10f else (torsoLength * 0.04f).coerceAtLeast(8f)
+        val resetThreshold = if (hasAnkles) 4f else (torsoLength * 0.015f).coerceAtLeast(3f)
 
         val baseline = calfAnkleBaselineY
         if (baseline == null) {
-            calfAnkleBaselineY = currentAnkleY
+            calfAnkleBaselineY = currentElevationY
             return PoseClassificationResult(
                 currentReps = reps,
                 targetReps = effectiveTargetReps,
@@ -512,19 +525,24 @@ class ExercisePoseClassifier(
             )
         }
 
-        val ankleLiftDelta = baseline - currentAnkleY
+        val liftDelta = baseline - currentElevationY
         val now = SystemClock.elapsedRealtime()
 
-        if (ankleLiftDelta >= 12f) {
+        if (liftDelta >= liftThreshold) {
+            // Peak / Up phase (on toes)
             isDownPhase = true
-        } else if (ankleLiftDelta <= 5f && isDownPhase) {
+        } else if (liftDelta <= resetThreshold && isDownPhase) {
+            // Returned to flat stance
             if (now - lastRepTimestampMs >= minRepDurationMs) {
                 reps += 1
                 lastRepTimestampMs = now
                 isDownPhase = false
-                calfAnkleBaselineY = (baseline * 0.8f) + (currentAnkleY * 0.2f)
+                calfAnkleBaselineY = (baseline * 0.8f) + (currentElevationY * 0.2f)
                 if (reps >= effectiveTargetReps) isCompleted = true
             }
+        } else if (currentElevationY > baseline + 15f) {
+            // User shifted stance: recalibrate baseline
+            calfAnkleBaselineY = currentElevationY
         }
 
         val feedback = when {

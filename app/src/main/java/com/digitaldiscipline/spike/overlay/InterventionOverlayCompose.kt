@@ -200,7 +200,7 @@ fun InterventionOverlayContent(
                 override fun onFinish() {
                     pauseSecondsRemaining = 0
                     EventLogger.log("OVERLAY", targetPackage, "INTERVENTION_COMPLETED", details = "Type: PAUSE | Mode: $ruleMode | Intervention: ${selectedIntervention?.id}")
-                    earnedSecondsTotal = unlockDurationSeconds
+                    earnedSecondsTotal = if (unlockDurationSeconds >= 300) unlockDurationSeconds else 300
                     activeTab = ActiveInterventionTab.CHALLENGE_COMPLETED
                 }
             }
@@ -222,7 +222,7 @@ fun InterventionOverlayContent(
 
                 override fun onFinish() {
                     EventLogger.log("OVERLAY", targetPackage, "INTERVENTION_COMPLETED", details = "Type: BREATHING | Mode: $ruleMode | Intervention: ${selectedIntervention?.id}")
-                    earnedSecondsTotal = unlockDurationSeconds
+                    earnedSecondsTotal = if (unlockDurationSeconds >= 300) unlockDurationSeconds else 300
                     activeTab = ActiveInterventionTab.CHALLENGE_COMPLETED
                 }
             }
@@ -238,10 +238,11 @@ fun InterventionOverlayContent(
             exerciseTitle = exerciseDef.title,
             targetReps = exerciseDef.defaultReps.takeIf { it > 0 } ?: 15,
             targetHoldSeconds = exerciseDef.defaultDurationSeconds.takeIf { it > 0 } ?: 30,
-            rewardMinutes = unlockDurationSeconds / 60,
+            rewardMinutes = kotlin.math.max(5, unlockDurationSeconds / 60),
             onComplete = { earnedSecs ->
-                EventLogger.log("OVERLAY", targetPackage, "INTERVENTION_COMPLETED", details = "Type: CAMERA_POSE | Exercise: ${exerciseDef.id} | Earned: $earnedSecs")
-                earnedSecondsTotal = earnedSecs
+                val finalEarned = if (earnedSecs >= 300) earnedSecs else 300
+                EventLogger.log("OVERLAY", targetPackage, "INTERVENTION_COMPLETED", details = "Type: CAMERA_POSE | Exercise: ${exerciseDef.id} | Earned: $finalEarned")
+                earnedSecondsTotal = finalEarned
                 activeTab = ActiveInterventionTab.CHALLENGE_COMPLETED
             },
             onSwitchToMotionSensor = {
@@ -803,7 +804,7 @@ fun InterventionOverlayContent(
                         targetAppName = targetAppName,
                         onSuccess = {
                             EventLogger.log("OVERLAY", targetPackage, "INTERVENTION_COMPLETED", details = "Type: COGNITIVE | Intervention: ${def.id}")
-                            earnedSecondsTotal = unlockDurationSeconds
+                            earnedSecondsTotal = if (unlockDurationSeconds >= 300) unlockDurationSeconds else 300
                             activeTab = ActiveInterventionTab.CHALLENGE_COMPLETED
                         }
                     )

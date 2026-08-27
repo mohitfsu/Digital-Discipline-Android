@@ -439,7 +439,8 @@ class PolicyEngine(
             details = "Duration: ${durationSec}s | Reason: $reason"
         )
 
-        // Schedule exact hardware-level alarm (works even if background coroutines or handlers are throttled)
+        // Cancel previous alarm before arming new one
+        cancelExactExpiryAlarm(packageName)
         scheduleExactExpiryAlarm(packageName, durationMs)
 
         activeUnlockJob?.cancel()
@@ -495,7 +496,25 @@ class PolicyEngine(
     suspend fun onTemporaryUnlockExpired(packageName: String) {
         cancelExactExpiryAlarm(packageName)
         policyRepository.revokeTemporaryUnlock(packageName)
-        walletService?.heartbeatOrUpdateSession(SystemClock.elapsedRealtime())
+
+        val currentModeStr = preferencesManager?.getUserMode()
+            ?: try { com.digitaldiscipline.spike.DigitalDisciplineApp.instance.preferencesManager.getUserMode() } catch (_: Exception) { UserMode.SELF.name }
+        val currentUserMode = try { UserMode.valueOf(currentModeStr) } catch (_: Exception) { UserMode.SELF }
+
+        // If wallet still has active session or balance, keep access open and do NOT block
+        val nowElapsed = SystemClock.elapsedRealtime()
+        val sessionUpdate = walletService?.heartbeatOrUpdateSession(nowElapsed)
+        val availableSec = walletService?.getWallet()?.availableSeconds ?: 0
+
+        if (sessionUpdate is SessionUpdateResult.Active && availableSec > 0) {
+            EventLogger.log(
+                source = "POLICY_ENGINE",
+                packageName = packageName,
+                eventType = "WALLET_SESSION_ACTIVE",
+                details = "Remaining available wallet balance: ${availableSec}s - keeping access active"
+            )
+            return
+        }
 
         EventLogger.log(
             source = "POLICY_ENGINE",
@@ -503,10 +522,6 @@ class PolicyEngine(
             eventType = "TEMPORARY_UNLOCK_EXPIRED",
             details = "Returning to BLOCKED state"
         )
-
-        val currentModeStr = preferencesManager?.getUserMode()
-            ?: try { com.digitaldiscipline.spike.DigitalDisciplineApp.instance.preferencesManager.getUserMode() } catch (_: Exception) { UserMode.SELF.name }
-        val currentUserMode = try { UserMode.valueOf(currentModeStr) } catch (_: Exception) { UserMode.SELF }
 
         val resolvedResult = behaviourPolicyResolver?.resolvePolicy(packageName, userMode = currentUserMode)
         val rule = when (resolvedResult) {
