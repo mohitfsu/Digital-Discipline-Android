@@ -65,8 +65,8 @@ fun OnboardingScreen(
                 Spacer(modifier = Modifier.height(16.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = "DIGITAL DISCIPLINE",
-                        color = Color(0xFF38BDF8),
+                        text = "FAMILY MODE SETUP",
+                        color = Color(0xFF10B981),
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Black,
                         letterSpacing = 2.sp
@@ -76,7 +76,7 @@ fun OnboardingScreen(
                 LinearProgressIndicator(
                     progress = { step / 5f },
                     modifier = Modifier.fillMaxWidth().height(6.dp),
-                    color = Color(0xFF38BDF8),
+                    color = Color(0xFF10B981),
                     trackColor = Color(0xFF1E293B)
                 )
                 Spacer(modifier = Modifier.height(4.dp))
@@ -96,16 +96,16 @@ fun OnboardingScreen(
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Surface(
                             shape = CircleShape,
-                            color = Color(0xFF0284C7).copy(alpha = 0.2f),
+                            color = Color(0xFF059669).copy(alpha = 0.2f),
                             modifier = Modifier.size(80.dp)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
-                                Text("🛡️", fontSize = 40.sp)
+                                Text("👨‍👩‍👧", fontSize = 40.sp)
                             }
                         }
                         Spacer(modifier = Modifier.height(20.dp))
                         Text(
-                            text = "Welcome to\nDigital Discipline",
+                            text = "Family Protection &\nParental Boundaries",
                             color = Color.White,
                             fontSize = 24.sp,
                             fontWeight = FontWeight.Bold,
@@ -113,7 +113,7 @@ fun OnboardingScreen(
                         )
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(
-                            text = "Help build mindful digital habits, restrict distractions, and increase productivity on managed devices through proven physical & mindful interventions.",
+                            text = "Set study hours, auto-block distracting games & entertainment on your child's phone, and safeguard all rules with your custom Parent PIN.",
                             color = Color(0xFF94A3B8),
                             fontSize = 14.sp,
                             textAlign = TextAlign.Center,

@@ -80,7 +80,7 @@ fun ScheduleBuilderCard(
                         )
                     }
                     Text(
-                        text = if (activeNowCount > 0) "🟢 $activeNowCount time window currently active" else "Configurable office, study & focus hours",
+                        text = if (activeNowCount > 0) "🟢 $activeNowCount time window currently active" else "Configurable school, study & bedtime hours",
                         color = if (activeNowCount > 0) Color(0xFF34D399) else Color(0xFF94A3B8),
                         fontSize = 12.sp,
                         fontWeight = if (activeNowCount > 0) FontWeight.Bold else FontWeight.Normal

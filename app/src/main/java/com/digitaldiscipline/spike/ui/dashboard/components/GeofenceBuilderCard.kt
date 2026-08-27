@@ -58,7 +58,7 @@ fun GeofenceBuilderCard(
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text("📍", fontSize = 18.sp)
                         Text(
-                            text = "WORKPLACE & SCHOOL GEOFENCES",
+                            text = "SCHOOL & STUDY GEOFENCES",
                             color = Color(0xFF38BDF8),
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Black,
@@ -66,7 +66,7 @@ fun GeofenceBuilderCard(
                         )
                     }
                     Text(
-                        text = if (isInsideGeofence && activeGeofenceName.isNotBlank()) "🟢 ACTIVE: Inside $activeGeofenceName" else "Native perimeter-based focus boundaries",
+                        text = if (isInsideGeofence && activeGeofenceName.isNotBlank()) "🟢 ACTIVE: Inside $activeGeofenceName" else "Perimeter-based study & focus boundaries",
                         color = if (isInsideGeofence) Color(0xFF34D399) else Color(0xFF94A3B8),
                         fontSize = 12.sp,
                         fontWeight = if (isInsideGeofence) FontWeight.Bold else FontWeight.Normal
@@ -265,7 +265,7 @@ private fun ConfigurableGeofenceDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
-                text = if (initialZone == null) "Add Workplace / School Geofence" else "Edit Geofence",
+                text = if (initialZone == null) "Add School / Study Geofence" else "Edit Geofence",
                 color = Color.White,
                 fontSize = 17.sp,
                 fontWeight = FontWeight.Bold
@@ -286,13 +286,13 @@ private fun ConfigurableGeofenceDialog(
                         color = Color(0xFF1E293B),
                         border = BorderStroke(1.dp, Color(0xFF334155)),
                         modifier = Modifier.clickable {
-                            name = "Main Office HQ"
-                            zoneType = "WORKPLACE"
-                            radius = 200f
+                            name = "Home Study Zone"
+                            zoneType = "HOME"
+                            radius = 100f
                             restrictionMode = "BLOCK"
                         }
                     ) {
-                        Text("🏢 Office HQ", color = Color(0xFF38BDF8), fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp))
+                        Text("🏠 Home Study", color = Color(0xFF38BDF8), fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp))
                     }
 
                     Surface(

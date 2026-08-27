@@ -113,14 +113,14 @@ fun ParentDashboardScreen(
         ) {
             Column {
                 Text(
-                    text = "DIGITAL DISCIPLINE",
-                    color = Color(0xFF38BDF8),
+                    text = "FAMILY PROTECTION",
+                    color = Color(0xFF10B981),
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Black,
                     letterSpacing = 1.5.sp
                 )
                 Text(
-                    text = if (isPaired) "Managed Device ($pairedChildName)" else "Admin & Device Policy Manager",
+                    text = if (isPaired) "Child Device ($pairedChildName)" else "Parent & Guardian Control Center",
                     color = Color(0xFF94A3B8),
                     fontSize = 12.sp
                 )
@@ -280,33 +280,12 @@ fun ParentDashboardScreen(
 
         Spacer(modifier = Modifier.height(14.dp))
 
-        // 0. Active Discipline Profile Card (Workplace / Family / Deep Work)
-        ProfileSwitcherCard(
-            activeProfileStr = activeProfileStr,
-            onSelectProfile = { selectedType, appendMode ->
-                showPinDialogForAction = {
-                    coroutineScope.launch {
-                        ProfileTemplateManager.applyProfile(
-                            type = selectedType,
-                            policyRepository = policyRepository,
-                            preferencesManager = preferencesManager,
-                            appendMode = appendMode
-                        )
-                        val t = ProfileTemplateManager.getTemplate(selectedType)
-                        Toast.makeText(context, "${t.iconEmoji} Switched to ${t.title}!", Toast.LENGTH_SHORT).show()
-                    }
-                }
-            }
-        )
-
-        Spacer(modifier = Modifier.height(14.dp))
-
-        // 1. Cloud Control Plane Status Card
+        // 1. Cloud Child Device Status Card
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .border(1.dp, if (isPaired) Color(0xFF0284C7) else Color(0xFF334155), RoundedCornerShape(14.dp)),
-            colors = CardDefaults.cardColors(containerColor = if (isPaired) Color(0xFF0C1E38) else Color(0xFF0F172A)),
+                .border(1.dp, if (isPaired) Color(0xFF059669) else Color(0xFF334155), RoundedCornerShape(14.dp)),
+            colors = CardDefaults.cardColors(containerColor = if (isPaired) Color(0xFF064E3B).copy(alpha = 0.3f) else Color(0xFF0F172A)),
             shape = RoundedCornerShape(14.dp)
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
@@ -320,8 +299,8 @@ fun ParentDashboardScreen(
                         Spacer(modifier = Modifier.width(10.dp))
                         Column {
                             Text(
-                                text = if (isPaired) "PAIRED WORKSPACE: ${pairedChildName.uppercase()}" else "STANDALONE MODE (NOT PAIRED)",
-                                color = if (isPaired) Color(0xFF38BDF8) else Color(0xFFCBD5E1),
+                                text = if (isPaired) "CHILD DEVICE: ${pairedChildName.uppercase()}" else "MANAGING THIS DEVICE DIRECTLY",
+                                color = if (isPaired) Color(0xFF10B981) else Color(0xFFCBD5E1),
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold,
                                 letterSpacing = 0.5.sp
@@ -331,7 +310,7 @@ fun ParentDashboardScreen(
                                     val timeStr = if (lastPolicySync > 0) SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date(lastPolicySync)) else "Just now"
                                     "Active Policy: v$policyVersion • Last Synced: $timeStr"
                                 } else {
-                                    "Not paired to Admin Cloud Console yet."
+                                    "Operating in standalone device mode."
                                 },
                                 color = Color(0xFF94A3B8),
                                 fontSize = 11.sp
@@ -350,7 +329,7 @@ fun ParentDashboardScreen(
                                 syncManager.triggerImmediateSync()
                                 Toast.makeText(context, "Syncing cloud policy...", Toast.LENGTH_SHORT).show()
                             },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7)),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF059669)),
                             shape = RoundedCornerShape(8.dp),
                             modifier = Modifier.weight(1.2f).padding(end = 4.dp).height(38.dp)
                         ) {
@@ -359,7 +338,7 @@ fun ParentDashboardScreen(
                     } else {
                         Button(
                             onClick = onNavigateToPairing,
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB)),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7)),
                             shape = RoundedCornerShape(8.dp),
                             modifier = Modifier.weight(1.2f).padding(end = 4.dp).height(38.dp)
                         ) {
@@ -372,9 +351,9 @@ fun ParentDashboardScreen(
                         shape = RoundedCornerShape(8.dp),
                         modifier = Modifier.weight(1f).padding(start = 4.dp).height(38.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E293B)),
-                        border = BorderStroke(1.dp, Color(0xFF38BDF8))
+                        border = BorderStroke(1.dp, Color(0xFF10B981))
                     ) {
-                        Text("☁️ ADMIN CONSOLE", color = Color(0xFF38BDF8), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Text("☁️ PARENT CLOUD HUB", color = Color(0xFF10B981), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }
