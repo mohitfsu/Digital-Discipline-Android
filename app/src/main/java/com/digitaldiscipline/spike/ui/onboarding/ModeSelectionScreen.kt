@@ -1,4 +1,4 @@
-﻿package com.digitaldiscipline.spike.ui.onboarding
+package com.digitaldiscipline.spike.ui.onboarding
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.sp
 fun ModeSelectionScreen(
     onSelectSelfMode: () -> Unit,
     onSelectFamilyMode: () -> Unit,
+    onSelectChildMode: () -> Unit = {},
     onSelectOfficeMode: () -> Unit
 ) {
     Box(
@@ -191,20 +192,38 @@ fun ModeSelectionScreen(
 
                         Spacer(modifier = Modifier.height(14.dp))
 
-                        Button(
-                            onClick = onSelectFamilyMode,
-                            modifier = Modifier.fillMaxWidth().height(42.dp),
-                            shape = RoundedCornerShape(10.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFF059669)
-                            )
-                        ) {
-                            Text(
-                                text = "Set Up Family Mode",
-                                color = Color.White,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold
-                            )
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(
+                                onClick = onSelectFamilyMode,
+                                modifier = Modifier.weight(1f).height(42.dp),
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFF059669)
+                                )
+                            ) {
+                                Text(
+                                    text = "🛡️ Parent Phone",
+                                    color = Color.White,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+
+                            Button(
+                                onClick = onSelectChildMode,
+                                modifier = Modifier.weight(1f).height(42.dp),
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFF0284C7)
+                                )
+                            ) {
+                                Text(
+                                    text = "👶 Child Phone",
+                                    color = Color.White,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                         }
                     }
                 }

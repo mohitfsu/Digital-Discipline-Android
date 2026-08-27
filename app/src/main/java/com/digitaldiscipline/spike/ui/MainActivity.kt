@@ -106,6 +106,13 @@ class MainActivity : ComponentActivity() {
                                     onSelectFamilyMode = {
                                         selectedOnboardingMode = UserMode.FAMILY
                                     },
+                                    onSelectChildMode = {
+                                        lifecycleScope.launch {
+                                            preferencesManager.setUserMode(UserMode.CHILD.name)
+                                            preferencesManager.setDeviceRole("CHILD_DEVICE")
+                                            preferencesManager.setOnboardingCompleted(true)
+                                        }
+                                    },
                                     onSelectOfficeMode = {
                                         lifecycleScope.launch {
                                             preferencesManager.setUserMode(UserMode.OFFICE.name)
@@ -144,10 +151,18 @@ class MainActivity : ComponentActivity() {
                                     onCompleteOnboarding = {
                                         lifecycleScope.launch {
                                             preferencesManager.setUserMode(UserMode.FAMILY.name)
+                                            preferencesManager.setDeviceRole("PARENT_DEVICE")
                                             preferencesManager.setOnboardingCompleted(true)
                                         }
                                     }
                                 )
+                            }
+                            UserMode.CHILD -> {
+                                lifecycleScope.launch {
+                                    preferencesManager.setUserMode(UserMode.CHILD.name)
+                                    preferencesManager.setDeviceRole("CHILD_DEVICE")
+                                    preferencesManager.setOnboardingCompleted(true)
+                                }
                             }
                             UserMode.OFFICE -> {
                                 lifecycleScope.launch {
@@ -530,6 +545,28 @@ class MainActivity : ComponentActivity() {
                                         preferencesManager = preferencesManager,
                                         isA11yActive = isAccessibilityGrantedState.value,
                                         isOverlayActive = isOverlayGrantedState.value,
+                                        onSwitchMode = { newMode ->
+                                            lifecycleScope.launch {
+                                                preferencesManager.setUserMode(newMode.name)
+                                            }
+                                        }
+                                    )
+                                } else if (userModeString == UserMode.CHILD.name || userModeString == "CHILD") {
+                                    com.digitaldiscipline.spike.ui.dashboard.ChildDashboardScreen(
+                                        context = this@MainActivity,
+                                        coroutineScope = lifecycleScope,
+                                        preferencesManager = preferencesManager,
+                                        pinManager = pinManager,
+                                        syncManager = syncManager,
+                                        isA11yActive = isAccessibilityGrantedState.value,
+                                        isOverlayActive = isOverlayGrantedState.value,
+                                        onNavigateToPairing = { currentScreen = AppScreen.DEVICE_PAIRING },
+                                        onOpenParentAdmin = {
+                                            lifecycleScope.launch {
+                                                preferencesManager.setUserMode(UserMode.FAMILY.name)
+                                                preferencesManager.setDeviceRole("PARENT_DEVICE")
+                                            }
+                                        },
                                         onSwitchMode = { newMode ->
                                             lifecycleScope.launch {
                                                 preferencesManager.setUserMode(newMode.name)

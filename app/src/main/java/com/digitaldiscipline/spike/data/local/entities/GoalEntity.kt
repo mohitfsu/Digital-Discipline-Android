@@ -20,11 +20,13 @@ enum class UserMode {
     SELF,
     FAMILY,
     OFFICE,
-    PARENT; // Legacy alias for FAMILY
+    PARENT, // Legacy alias for FAMILY (Parent)
+    CHILD;  // Child Device Mode
 
     companion object {
         fun fromString(value: String?): UserMode {
             return when (value?.uppercase()) {
+                "CHILD" -> CHILD
                 "PARENT", "FAMILY" -> FAMILY
                 "OFFICE", "WORKPLACE", "CORPORATE" -> OFFICE
                 else -> SELF

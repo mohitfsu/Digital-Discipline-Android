@@ -48,6 +48,20 @@ class PairingManager(
     private val secureRandom = SecureRandom()
     private val localPairingCodes = mutableMapOf<String, PairingCodeDto>()
 
+    private suspend fun ensureAuth() {
+        try {
+            if (FirebaseApp.getApps(context).isEmpty()) {
+                FirebaseApp.initializeApp(context)
+            }
+            val auth = com.google.firebase.auth.FirebaseAuth.getInstance()
+            if (auth.currentUser == null) {
+                auth.signInAnonymously().await()
+            }
+        } catch (e: Exception) {
+            EventLogger.log("PAIRING", "system", "ANON_AUTH_FAILED", details = e.message ?: "")
+        }
+    }
+
     /**
      * Parent Action: Generates a single-use 6-digit pairing code with a 15-minute TTL.
      */
@@ -57,6 +71,7 @@ class PairingManager(
         childName: String,
         parentId: String
     ): Result<String> {
+        ensureAuth()
         val codeNumber = 100000 + secureRandom.nextInt(900000)
         val code = codeNumber.toString()
         val nowMs = System.currentTimeMillis()
@@ -75,13 +90,11 @@ class PairingManager(
         // Store in local resilient map
         localPairingCodes[code] = pairingDto
 
-        // Background sync to Cloud Firestore
-        scope.launch {
-            try {
-                firestore?.collection("pairing_codes")?.document(code)?.set(pairingDto, SetOptions.merge())?.await()
-            } catch (e: Exception) {
-                // Background cloud sync failure is non-blocking
-            }
+        // Sync to Cloud Firestore
+        try {
+            firestore?.collection("pairing_codes")?.document(code)?.set(pairingDto, SetOptions.merge())?.await()
+        } catch (e: Exception) {
+            EventLogger.log("PAIRING", "system", "FIRESTORE_WRITE_FAILED", details = e.message ?: "")
         }
 
         EventLogger.log("PAIRING", "system", "PAIRING_CODE_GENERATED", details = "Code: $code | Child: $childName | Expires in 15m")
@@ -99,10 +112,12 @@ class PairingManager(
             return PairingResult.InvalidCode("Pairing code must be 6 digits")
         }
 
-        // 1. Check local resilient map first (instant response)
+        ensureAuth()
+
+        // 1. Check local resilient map first (instant response if on same instance)
         var pairingCode = localPairingCodes[cleanCode]
 
-        // 2. If not found locally, check Firestore
+        // 2. Check Firestore
         if (pairingCode == null && firestore != null) {
             try {
                 val snapshot = firestore?.collection("pairing_codes")?.document(cleanCode)?.get()?.await()
@@ -110,7 +125,7 @@ class PairingManager(
                     pairingCode = snapshot.toObject(PairingCodeDto::class.java)
                 }
             } catch (e: Exception) {
-                // Ignore
+                EventLogger.log("PAIRING", "system", "FIRESTORE_READ_FAILED", details = e.message ?: "")
             }
         }
 

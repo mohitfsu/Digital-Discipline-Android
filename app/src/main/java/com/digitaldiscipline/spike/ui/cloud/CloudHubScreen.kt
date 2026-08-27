@@ -287,12 +287,12 @@ fun CloudHubScreen(
                         shape = RoundedCornerShape(14.dp)
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
-                            Text("1. WORKSPACE & MANAGED DEVICES", color = Color(0xFF38BDF8), fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                            Text("1. FAMILY GROUP & CHILD DEVICES", color = Color(0xFF10B981), fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
                             Spacer(modifier = Modifier.height(12.dp))
 
                             if (activeFamily == null || showCreateNewFamilyForm) {
                                 Text(
-                                    text = if (activeFamily == null) "Create your Workspace profile to get started:" else "Add Another Workspace:",
+                                    text = if (activeFamily == null) "Create your Family Group to get started:" else "Add Another Family Group:",
                                     color = Color(0xFFCBD5E1),
                                     fontSize = 12.sp
                                 )
@@ -302,8 +302,8 @@ fun CloudHubScreen(
                                     OutlinedTextField(
                                         value = newFamilyName,
                                         onValueChange = { newFamilyName = it },
-                                        label = { Text("Workspace Name") },
-                                        placeholder = { Text("e.g. Acme Team / Main Workspace") },
+                                        label = { Text("Family Name") },
+                                        placeholder = { Text("e.g. My Family / Home") },
                                         modifier = Modifier.weight(1f)
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
@@ -318,12 +318,12 @@ fun CloudHubScreen(
                                                         activeFamily = res.getOrNull()
                                                         showCreateNewFamilyForm = false
                                                         newFamilyName = ""
-                                                        Toast.makeText(context, "Workspace created!", Toast.LENGTH_SHORT).show()
+                                                        Toast.makeText(context, "Family Group created!", Toast.LENGTH_SHORT).show()
                                                     }
                                                 }
                                             }
                                         },
-                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB))
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF059669))
                                     ) {
                                         if (isCreatingFamily) {
                                             CircularProgressIndicator(color = Color.White, modifier = Modifier.size(18.dp))
@@ -339,7 +339,7 @@ fun CloudHubScreen(
                                     }
                                 }
                             } else {
-                                // Active Workspace Banner
+                                // Active Family Banner
                                 Surface(
                                     color = Color(0xFF1E293B),
                                     shape = RoundedCornerShape(8.dp),
@@ -351,10 +351,10 @@ fun CloudHubScreen(
                                         horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
                                         Column {
-                                            Text("🏢 ${activeFamily!!.familyName}", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                                            Text("Workspace ID: ${activeFamily!!.familyId.take(12)}", color = Color(0xFF94A3B8), fontSize = 11.sp)
+                                            Text("👨‍👩‍👧 ${activeFamily!!.familyName}", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                            Text("Family ID: ${activeFamily!!.familyId.take(12)}", color = Color(0xFF94A3B8), fontSize = 11.sp)
                                         }
-                                        Text("Tier: ${activeFamily!!.subscriptionTier}", color = Color(0xFF34D399), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                        Text("Protected", color = Color(0xFF34D399), fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                     }
                                 }
 
