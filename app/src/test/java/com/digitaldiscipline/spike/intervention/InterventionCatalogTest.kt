@@ -12,7 +12,7 @@ class InterventionCatalogTest {
     @Test
     fun catalogContainsAll48Interventions() {
         val all = InterventionCatalog.getAllInterventions()
-        assertEquals(49, all.size)
+        assertEquals(50, all.size)
     }
 
     @Test
@@ -23,7 +23,7 @@ class InterventionCatalogTest {
         assertEquals(3, InterventionCatalog.getByCategory(InterventionCategory.MEDITATION).size)
         assertEquals(6, InterventionCatalog.getByCategory(InterventionCategory.YOGA_MOBILITY).size)
         assertEquals(5, InterventionCatalog.getByCategory(InterventionCategory.PHYSICAL_RESET).size)
-        assertEquals(12, InterventionCatalog.getByCategory(InterventionCategory.COGNITIVE).size)
+        assertEquals(13, InterventionCatalog.getByCategory(InterventionCategory.COGNITIVE).size)
         assertEquals(4, InterventionCatalog.getByCategory(InterventionCategory.CREATIVE_FLOW).size)
         assertEquals(3, InterventionCatalog.getByCategory(InterventionCategory.MINDFUL_PERSPECTIVE).size)
     }

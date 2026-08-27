@@ -573,6 +573,25 @@ fun ChildDashboardScreen(
                                     }
                                 )
                             }
+                            activeChallenge.id == "HANGMAN_CLASSIC" -> {
+                                HangmanWordGame(
+                                    timeLimitSeconds = 45,
+                                    onSuccess = {
+                                        coroutineScope.launch(Dispatchers.IO) {
+                                            val res = walletService.earnTime(amountSeconds = 300, source = "HANGMAN_CHALLENGE")
+                                            withContext(Dispatchers.Main) {
+                                                when (res) {
+                                                    is EarnResult.Success -> Toast.makeText(context, "🎉 +${res.earnedSeconds / 60}m Added! Total: ${res.newBalanceSeconds / 60}m (15m max)", Toast.LENGTH_SHORT).show()
+                                                    is EarnResult.CapReached -> Toast.makeText(context, "⚠️ ${res.reason}", Toast.LENGTH_LONG).show()
+                                                    else -> {}
+                                                }
+                                                activeChallengeItem = null
+                                                showEarnStudioDialog = false
+                                            }
+                                        }
+                                    }
+                                )
+                            }
                             activeChallenge.id == "MATH_SPRINT" || activeChallenge.id == "SIMPLE_MATH" -> {
                                 MathSprintGame(
                                     onSuccess = {

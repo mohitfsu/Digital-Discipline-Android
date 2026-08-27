@@ -1153,6 +1153,7 @@ private fun CognitiveChallengeCard(
 
             when (intervention.id) {
                 "IMAGE_PUZZLE_3X3" -> ImageTilePuzzleGame(onSuccess = onSuccess)
+                "HANGMAN_CLASSIC" -> HangmanWordGame(onSuccess = onSuccess)
                 "ZEN_ENSO_CANVAS" -> ZenCanvasEnsoGame(onSuccess = onSuccess)
                 "SCAVENGER_HUNT" -> RealWorldScavengerGame(onSuccess = onSuccess)
                 "HAND_MUDRA_DEXTERITY" -> HandMudraDexterityGame(onSuccess = onSuccess)

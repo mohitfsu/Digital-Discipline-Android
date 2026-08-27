@@ -425,6 +425,19 @@ object InterventionCatalog {
             rewardSeconds = 600
         ),
         InterventionDefinition(
+            id = "HANGMAN_CLASSIC",
+            title = "Mindful Hangman Word Guess",
+            description = "Decrypt the mystery mindfulness or focus word before 6 strikes to ground your thinking.",
+            category = InterventionCategory.COGNITIVE,
+            validationType = ValidationType.INTERACTION_VALIDATED,
+            iconEmoji = "🔤",
+            calmPrompt = "Guess the mindful word before 6 strikes.",
+            instructions = "Tap letters to guess the hidden word. Max 6 mistakes allowed before timer resets.",
+            defaultReps = 1,
+            defaultDurationSeconds = 45,
+            rewardSeconds = 600
+        ),
+        InterventionDefinition(
             id = "SIMPLE_MATH",
             title = "30s Mental Math Sprint",
             description = "Solve arithmetic equations over 30 seconds to awaken your prefrontal cortex.",
