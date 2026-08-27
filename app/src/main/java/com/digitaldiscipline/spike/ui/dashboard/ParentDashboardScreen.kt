@@ -74,6 +74,10 @@ fun ParentDashboardScreen(
     var showPinDialogForAction by remember { mutableStateOf<(() -> Unit)?>(null) }
     var enteredPin by remember { mutableStateOf("") }
     var pinError by remember { mutableStateOf<String?>(null) }
+    var showSetPinDialog by remember { mutableStateOf(false) }
+    var newPinText by remember { mutableStateOf("") }
+    var confirmPinText by remember { mutableStateOf("") }
+    var setPinError by remember { mutableStateOf<String?>(null) }
     var showAddCustomAppDialog by remember { mutableStateOf(false) }
     var showDiagnosticLogDialog by remember { mutableStateOf(false) }
 
@@ -810,6 +814,23 @@ fun ParentDashboardScreen(
                         Text("Deactivate Device Admin (Requires PIN)", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
                 }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                OutlinedButton(
+                    onClick = {
+                        newPinText = ""
+                        confirmPinText = ""
+                        setPinError = null
+                        showSetPinDialog = true
+                    },
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF38BDF8)),
+                    border = BorderStroke(1.dp, Color(0xFF38BDF8)),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.fillMaxWidth().height(36.dp)
+                ) {
+                    Text(if (pinManager.isPinSet()) "🔑 Change Parent PIN" else "🔑 Set Secure Parent PIN (Required)", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
             }
         }
 
@@ -886,27 +907,128 @@ fun ParentDashboardScreen(
             )
         }
 
+    // Set / Change Parent PIN Dialog
+    if (showSetPinDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showSetPinDialog = false
+                newPinText = ""
+                confirmPinText = ""
+                setPinError = null
+            },
+            title = { Text(if (pinManager.isPinSet()) "Change Parent PIN" else "Create Secure Parent PIN", color = Color.White, fontWeight = FontWeight.Bold) },
+            text = {
+                Column {
+                    Text(
+                        "Set a custom 4-digit PIN known only to the parent. This prevents children from modifying enforcement rules or disabling protections.",
+                        color = Color(0xFF94A3B8),
+                        fontSize = 12.sp
+                    )
+                    Spacer(modifier = Modifier.height(14.dp))
+                    OutlinedTextField(
+                        value = newPinText,
+                        onValueChange = { if (it.length <= 4 && it.all { char -> char.isDigit() }) newPinText = it },
+                        label = { Text("New 4-Digit PIN") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    OutlinedTextField(
+                        value = confirmPinText,
+                        onValueChange = { if (it.length <= 4 && it.all { char -> char.isDigit() }) confirmPinText = it },
+                        label = { Text("Confirm PIN") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    if (setPinError != null) {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(text = setPinError!!, color = Color(0xFFEF4444), fontSize = 12.sp)
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (newPinText.length < 4) {
+                            setPinError = "PIN must be exactly 4 digits."
+                        } else if (newPinText != confirmPinText) {
+                            setPinError = "PINs do not match."
+                        } else {
+                            val success = pinManager.setPin(newPinText)
+                            if (success) {
+                                Toast.makeText(context, "Parent PIN saved securely!", Toast.LENGTH_SHORT).show()
+                                showSetPinDialog = false
+                                newPinText = ""
+                                confirmPinText = ""
+                                setPinError = null
+                            } else {
+                                setPinError = "Failed to save PIN."
+                            }
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7))
+                ) {
+                    Text("Save PIN")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showSetPinDialog = false
+                    newPinText = ""
+                    confirmPinText = ""
+                    setPinError = null
+                }) {
+                    Text("Cancel", color = Color(0xFF94A3B8))
+                }
+            },
+            containerColor = Color(0xFF0F172A)
+        )
+    }
+
     // Admin PIN Verification Dialog
     if (showPinDialogForAction != null) {
+        val isPinAlreadySet = pinManager.isPinSet()
         AlertDialog(
             onDismissRequest = {
                 showPinDialogForAction = null
                 enteredPin = ""
+                newPinText = ""
+                confirmPinText = ""
                 pinError = null
             },
-            title = { Text("Admin PIN Verification", color = Color.White) },
+            title = { Text(if (isPinAlreadySet) "Parent PIN Verification" else "Set Parent PIN Required", color = Color.White, fontWeight = FontWeight.Bold) },
             text = {
                 Column {
-                    Text("Enter your 4-digit Admin PIN to authorize this change:", color = Color(0xFF94A3B8), fontSize = 13.sp)
-                    Spacer(modifier = Modifier.height(12.dp))
-                    OutlinedTextField(
-                        value = enteredPin,
-                        onValueChange = { if (it.length <= 6) enteredPin = it },
-                        label = { Text("4-Digit PIN") },
-                        singleLine = true,
-                        isError = pinError != null,
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    if (isPinAlreadySet) {
+                        Text("Enter your 4-digit Parent PIN to authorize this change:", color = Color(0xFF94A3B8), fontSize = 13.sp)
+                        Spacer(modifier = Modifier.height(12.dp))
+                        OutlinedTextField(
+                            value = enteredPin,
+                            onValueChange = { if (it.length <= 6 && it.all { char -> char.isDigit() }) enteredPin = it },
+                            label = { Text("4-Digit PIN") },
+                            singleLine = true,
+                            isError = pinError != null,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    } else {
+                        Text("A secure Parent PIN is required before modifying enforcement policies. Set your 4-digit PIN below:", color = Color(0xFF94A3B8), fontSize = 12.sp)
+                        Spacer(modifier = Modifier.height(12.dp))
+                        OutlinedTextField(
+                            value = newPinText,
+                            onValueChange = { if (it.length <= 4 && it.all { char -> char.isDigit() }) newPinText = it },
+                            label = { Text("New 4-Digit PIN") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = confirmPinText,
+                            onValueChange = { if (it.length <= 4 && it.all { char -> char.isDigit() }) confirmPinText = it },
+                            label = { Text("Confirm PIN") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
                     if (pinError != null) {
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(text = pinError!!, color = Color(0xFFEF4444), fontSize = 12.sp)
@@ -916,37 +1038,57 @@ fun ParentDashboardScreen(
             confirmButton = {
                 Button(
                     onClick = {
-                        val result = pinManager.verifyPin(enteredPin)
-                        when (result) {
-                            is PinVerificationResult.Success -> {
+                        if (isPinAlreadySet) {
+                            val result = pinManager.verifyPin(enteredPin)
+                            when (result) {
+                                is PinVerificationResult.Success -> {
+                                    val action = showPinDialogForAction
+                                    showPinDialogForAction = null
+                                    enteredPin = ""
+                                    pinError = null
+                                    action?.invoke()
+                                }
+                                is PinVerificationResult.IncorrectPin -> {
+                                    pinError = "Incorrect PIN. ${result.attemptsRemaining} attempts left."
+                                }
+                                is PinVerificationResult.LockedOut -> {
+                                    pinError = "Locked out for ${result.remainingLockoutSeconds}s."
+                                }
+                                is PinVerificationResult.PinNotSet -> {
+                                    pinError = "Please configure your Parent PIN."
+                                }
+                            }
+                        } else {
+                            if (newPinText.length < 4) {
+                                pinError = "PIN must be exactly 4 digits."
+                            } else if (newPinText != confirmPinText) {
+                                pinError = "PINs do not match."
+                            } else {
+                                pinManager.setPin(newPinText)
                                 val action = showPinDialogForAction
                                 showPinDialogForAction = null
-                                enteredPin = ""
+                                newPinText = ""
+                                confirmPinText = ""
                                 pinError = null
+                                Toast.makeText(context, "Parent PIN set and authorized!", Toast.LENGTH_SHORT).show()
                                 action?.invoke()
                             }
-                            is PinVerificationResult.IncorrectPin -> {
-                                pinError = "Incorrect PIN. ${result.attemptsRemaining} attempts left."
-                            }
-                            is PinVerificationResult.LockedOut -> {
-                                pinError = "Locked out for ${result.remainingLockoutSeconds}s."
-                            }
-                            is PinVerificationResult.PinNotSet -> {
-                                pinError = "Admin PIN not configured."
-                            }
                         }
-                    }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7))
                 ) {
-                    Text("Authorize")
+                    Text(if (isPinAlreadySet) "Authorize" else "Save & Authorize")
                 }
             },
             dismissButton = {
                 TextButton(onClick = {
                     showPinDialogForAction = null
                     enteredPin = ""
+                    newPinText = ""
+                    confirmPinText = ""
                     pinError = null
                 }) {
-                    Text("Cancel")
+                    Text("Cancel", color = Color(0xFF94A3B8))
                 }
             },
             containerColor = Color(0xFF0F172A)

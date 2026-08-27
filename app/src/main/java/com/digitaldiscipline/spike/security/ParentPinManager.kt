@@ -46,13 +46,6 @@ class ParentPinManager(private val context: Context) {
         EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
     )
 
-    init {
-        // Set default initial PIN to 1234 if not configured
-        if (!isPinSet()) {
-            setPin("1234")
-        }
-    }
-
     fun isPinSet(): Boolean {
         return securePrefs.contains(KEY_PIN_HASH) && securePrefs.contains(KEY_PIN_SALT)
     }
@@ -80,7 +73,7 @@ class ParentPinManager(private val context: Context) {
 
     fun verifyPin(enteredPin: String): PinVerificationResult {
         if (!isPinSet()) {
-            setPin("1234")
+            return PinVerificationResult.PinNotSet
         }
 
         val nowElapsed = SystemClock.elapsedRealtime()
