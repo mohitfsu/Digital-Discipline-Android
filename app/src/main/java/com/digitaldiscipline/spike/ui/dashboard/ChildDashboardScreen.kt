@@ -43,6 +43,7 @@ import androidx.core.content.ContextCompat
 import com.digitaldiscipline.spike.data.local.entities.UserMode
 import com.digitaldiscipline.spike.data.preferences.PreferencesManager
 import com.digitaldiscipline.spike.intervention.catalog.InterventionCatalog
+import com.digitaldiscipline.spike.wallet.EarnResult
 import com.digitaldiscipline.spike.intervention.model.InterventionCategory
 import com.digitaldiscipline.spike.intervention.model.InterventionDefinition
 import com.digitaldiscipline.spike.security.ParentPinManager
@@ -558,9 +559,13 @@ fun ChildDashboardScreen(
                                     timeLimitSeconds = 30,
                                     onSuccess = {
                                         coroutineScope.launch(Dispatchers.IO) {
-                                            walletService.earnTime(amountSeconds = 600, source = "PUZZLE_CHALLENGE")
+                                            val res = walletService.earnTime(amountSeconds = 300, source = "PUZZLE_CHALLENGE")
                                             withContext(Dispatchers.Main) {
-                                                Toast.makeText(context, "🎉 +10 Minutes Added to Your Wallet!", Toast.LENGTH_LONG).show()
+                                                when (res) {
+                                                    is EarnResult.Success -> Toast.makeText(context, "🎉 +${res.earnedSeconds / 60}m Added! Total: ${res.newBalanceSeconds / 60}m (15m max)", Toast.LENGTH_SHORT).show()
+                                                    is EarnResult.CapReached -> Toast.makeText(context, "⚠️ ${res.reason}", Toast.LENGTH_LONG).show()
+                                                    else -> {}
+                                                }
                                                 activeChallengeItem = null
                                                 showEarnStudioDialog = false
                                             }
@@ -572,9 +577,13 @@ fun ChildDashboardScreen(
                                 MathSprintGame(
                                     onSuccess = {
                                         coroutineScope.launch(Dispatchers.IO) {
-                                            walletService.earnTime(amountSeconds = 600, source = "MATH_CHALLENGE")
+                                            val res = walletService.earnTime(amountSeconds = 300, source = "MATH_CHALLENGE")
                                             withContext(Dispatchers.Main) {
-                                                Toast.makeText(context, "🎉 +10 Minutes Added to Your Wallet!", Toast.LENGTH_LONG).show()
+                                                when (res) {
+                                                    is EarnResult.Success -> Toast.makeText(context, "🎉 +${res.earnedSeconds / 60}m Added! Total: ${res.newBalanceSeconds / 60}m (15m max)", Toast.LENGTH_SHORT).show()
+                                                    is EarnResult.CapReached -> Toast.makeText(context, "⚠️ ${res.reason}", Toast.LENGTH_LONG).show()
+                                                    else -> {}
+                                                }
                                                 activeChallengeItem = null
                                                 showEarnStudioDialog = false
                                             }
@@ -591,9 +600,13 @@ fun ChildDashboardScreen(
                                         targetHoldSeconds = if (activeChallenge.defaultDurationSeconds > 0) activeChallenge.defaultDurationSeconds else 30,
                                         onComplete = {
                                             coroutineScope.launch(Dispatchers.IO) {
-                                                walletService.earnTime(amountSeconds = 600, source = "MOVEMENT_CHALLENGE")
+                                                val res = walletService.earnTime(amountSeconds = 300, source = "MOVEMENT_CHALLENGE")
                                                 withContext(Dispatchers.Main) {
-                                                    Toast.makeText(context, "🎉 +10 Minutes Added to Your Wallet!", Toast.LENGTH_LONG).show()
+                                                    when (res) {
+                                                        is EarnResult.Success -> Toast.makeText(context, "🎉 +${res.earnedSeconds / 60}m Added! Total: ${res.newBalanceSeconds / 60}m (15m max)", Toast.LENGTH_SHORT).show()
+                                                        is EarnResult.CapReached -> Toast.makeText(context, "⚠️ ${res.reason}", Toast.LENGTH_LONG).show()
+                                                        else -> {}
+                                                    }
                                                     activeChallengeItem = null
                                                     showEarnStudioDialog = false
                                                 }
@@ -630,9 +643,13 @@ fun ChildDashboardScreen(
                                     Button(
                                         onClick = {
                                             coroutineScope.launch(Dispatchers.IO) {
-                                                walletService.earnTime(amountSeconds = 600, source = "HABIT_CHALLENGE")
+                                                val res = walletService.earnTime(amountSeconds = 300, source = "HABIT_CHALLENGE")
                                                 withContext(Dispatchers.Main) {
-                                                    Toast.makeText(context, "🎉 +10 Minutes Added to Your Wallet!", Toast.LENGTH_LONG).show()
+                                                    when (res) {
+                                                        is EarnResult.Success -> Toast.makeText(context, "🎉 +${res.earnedSeconds / 60}m Added! Total: ${res.newBalanceSeconds / 60}m (15m max)", Toast.LENGTH_SHORT).show()
+                                                        is EarnResult.CapReached -> Toast.makeText(context, "⚠️ ${res.reason}", Toast.LENGTH_LONG).show()
+                                                        else -> {}
+                                                    }
                                                     activeChallengeItem = null
                                                     showEarnStudioDialog = false
                                                 }
@@ -640,7 +657,7 @@ fun ChildDashboardScreen(
                                         },
                                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981))
                                     ) {
-                                        Text("COMPLETE & EARN +10m", fontWeight = FontWeight.Bold)
+                                        Text("COMPLETE & EARN +5m", fontWeight = FontWeight.Bold)
                                     }
                                 }
                             }

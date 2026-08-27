@@ -71,6 +71,7 @@ fun ChildOnboardingScreen(
     policyRepository: PolicyRepository,
     preferencesManager: PreferencesManager,
     pinManager: ParentPinManager,
+    walletService: com.digitaldiscipline.spike.wallet.EarnedTimeWalletService? = null,
     isAccessibilityGranted: Boolean,
     isOverlayGranted: Boolean,
     isUsageStatsGranted: Boolean,
@@ -887,6 +888,7 @@ fun ChildOnboardingScreen(
                                         preferencesManager.setUserMode(com.digitaldiscipline.spike.data.local.entities.UserMode.CHILD.name)
                                         preferencesManager.setDeviceRole("CHILD_DEVICE")
                                         preferencesManager.setOnboardingCompleted(true)
+                                        walletService?.resetWalletBalance()
                                         syncManager.triggerImmediateSync()
                                         withContext(Dispatchers.Main) {
                                             Toast.makeText(context, "Child Phone protection sealed!", Toast.LENGTH_LONG).show()

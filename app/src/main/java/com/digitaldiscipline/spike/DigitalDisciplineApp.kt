@@ -130,7 +130,8 @@ class DigitalDisciplineApp : Application(), Configuration.Provider {
         walletService = com.digitaldiscipline.spike.wallet.EarnedTimeWalletService(
             walletDao = database.earnedTimeWalletDao(),
             transactionDao = database.walletTransactionDao(),
-            sessionDao = database.walletSessionDao()
+            sessionDao = database.walletSessionDao(),
+            preferencesManager = preferencesManager
         )
 
         personalizationRepository = com.digitaldiscipline.spike.behaviour.adaptive.PersonalizationRepository(

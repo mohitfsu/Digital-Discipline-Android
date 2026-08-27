@@ -5,6 +5,7 @@ import com.digitaldiscipline.spike.data.local.dao.EarnedTimeWalletDao
 import com.digitaldiscipline.spike.data.local.dao.WalletSessionDao
 import com.digitaldiscipline.spike.data.local.dao.WalletTransactionDao
 import com.digitaldiscipline.spike.data.local.entities.*
+import com.digitaldiscipline.spike.data.preferences.PreferencesManager
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -39,7 +40,8 @@ sealed class SessionEndResult {
 class EarnedTimeWalletService(
     private val walletDao: EarnedTimeWalletDao,
     private val transactionDao: WalletTransactionDao,
-    private val sessionDao: WalletSessionDao
+    private val sessionDao: WalletSessionDao,
+    private val preferencesManager: PreferencesManager? = null
 ) {
     private val mutex = Mutex()
     private val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
@@ -67,24 +69,59 @@ class EarnedTimeWalletService(
         var wallet = walletDao.getWallet(walletId)
         val today = todayDateString
 
+        val currentMode = try { preferencesManager?.getUserMode() ?: "SELF" } catch (_: Exception) { "SELF" }
+        val isChild = currentMode == "CHILD"
+
+        val modeDailyEarnCap = if (isChild) 1800 else 3600
+        val modeMaxBalanceCap = if (isChild) 900 else 3600
+        val modeMaxSession = if (isChild) 600 else 1800
+
         if (wallet == null) {
             wallet = EarnedTimeWalletEntity(
                 walletId = walletId,
-                ownerId = "self",
-                mode = "SELF",
+                ownerId = if (isChild) "child" else "self",
+                mode = currentMode,
                 availableSeconds = 0,
+                dailyEarnCapSeconds = modeDailyEarnCap,
+                maxBalanceCapSeconds = modeMaxBalanceCap,
+                maxSessionSeconds = modeMaxSession,
                 lastDateString = today
             )
             walletDao.insertOrUpdateWallet(wallet)
-        } else if (wallet.lastDateString != today) {
-            // Day rollover: Reset daily counters cleanly
-            wallet = wallet.copy(
-                dailyEarnedSeconds = 0,
-                dailyConsumedSeconds = 0,
-                lastDateString = today,
-                updatedAt = System.currentTimeMillis()
-            )
-            walletDao.insertOrUpdateWallet(wallet)
+        } else {
+            var updated = wallet
+            if (wallet.lastDateString != today) {
+                // Day rollover: Reset daily counters cleanly
+                updated = updated.copy(
+                    dailyEarnedSeconds = 0,
+                    dailyConsumedSeconds = 0,
+                    lastDateString = today,
+                    updatedAt = System.currentTimeMillis()
+                )
+            }
+            // Update caps if mode switched to/from CHILD or if child balance exceeds 15m cap
+            if (isChild && (updated.maxBalanceCapSeconds > 900 || updated.availableSeconds > 900 || updated.mode != "CHILD")) {
+                updated = updated.copy(
+                    mode = "CHILD",
+                    dailyEarnCapSeconds = 1800,
+                    maxBalanceCapSeconds = 900,
+                    maxSessionSeconds = 600,
+                    availableSeconds = updated.availableSeconds.coerceAtMost(900),
+                    updatedAt = System.currentTimeMillis()
+                )
+            } else if (!isChild && updated.mode == "CHILD") {
+                updated = updated.copy(
+                    mode = "SELF",
+                    dailyEarnCapSeconds = 3600,
+                    maxBalanceCapSeconds = 3600,
+                    maxSessionSeconds = 1800,
+                    updatedAt = System.currentTimeMillis()
+                )
+            }
+            if (updated != wallet) {
+                walletDao.insertOrUpdateWallet(updated)
+            }
+            wallet = updated
         }
         return wallet
     }
@@ -134,10 +171,10 @@ class EarnedTimeWalletService(
             return EarnResult.CapReached("Daily earning cap reached (${wallet.dailyEarnCapSeconds / 60} min)")
         }
 
-        // 3. Enforce Max Wallet Balance Cap
+        // 3. Enforce Max Wallet Balance Cap (e.g. 15 mins for child)
         val remainingBalanceAllowance = (wallet.maxBalanceCapSeconds - wallet.availableSeconds).coerceAtLeast(0)
         if (remainingBalanceAllowance <= 0) {
-            return EarnResult.CapReached("Wallet balance is full (${wallet.maxBalanceCapSeconds / 60} min)")
+            return EarnResult.CapReached("Wallet is full (${wallet.maxBalanceCapSeconds / 60} min max). Use your earned time first!")
         }
 
         val finalEarned = amountSeconds.coerceAtMost(remainingDailyAllowance).coerceAtMost(remainingBalanceAllowance)

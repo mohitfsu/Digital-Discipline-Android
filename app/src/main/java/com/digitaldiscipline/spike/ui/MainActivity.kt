@@ -162,6 +162,7 @@ class MainActivity : ComponentActivity() {
                                     policyRepository = policyRepository,
                                     preferencesManager = preferencesManager,
                                     pinManager = pinManager,
+                                    walletService = walletService,
                                     isAccessibilityGranted = isAccessibilityGrantedState.value,
                                     isOverlayGranted = isOverlayGrantedState.value,
                                     isUsageStatsGranted = isUsageStatsGrantedState.value,
