@@ -39,13 +39,12 @@ class BehaviourPolicyResolver(
     ): PolicyResolutionResult {
         // 1. Check Existing Parent Enforcement Policy (Mandatory Precedence)
         val parentRule = policyRepository.getRuleForPackage(packageName)
-        if (userMode == UserMode.PARENT && parentRule != null && parentRule.isEnabled) {
-            return PolicyResolutionResult.ParentPolicyMatch(parentRule)
-        }
-
-        // If in PARENT mode but no specific rule, and not in SELF mode, return Parent rule or NoMatch
         if (userMode == UserMode.PARENT) {
-            return if (parentRule != null) PolicyResolutionResult.ParentPolicyMatch(parentRule) else PolicyResolutionResult.NoMatch
+            return if (parentRule != null && parentRule.isEnabled) {
+                PolicyResolutionResult.ParentPolicyMatch(parentRule)
+            } else {
+                PolicyResolutionResult.NoMatch
+            }
         }
 
         // 2. SELF MODE: Evaluate Active Behaviour Policies (Strictly user-selected apps only)

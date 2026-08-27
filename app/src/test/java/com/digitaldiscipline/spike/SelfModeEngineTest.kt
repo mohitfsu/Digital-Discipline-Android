@@ -55,10 +55,13 @@ class SelfModeEngineTest {
 
         val mockScheduleDao = object : ScheduleDao {
             override fun getAllSchedulesFlow(): Flow<List<ScheduleEntity>> = flowOf(emptyList())
+            override suspend fun getAllSchedules(): List<ScheduleEntity> = emptyList()
             override suspend fun getSchedulesForPackage(packageName: String): List<ScheduleEntity> = emptyList()
             override suspend fun insertSchedule(schedule: ScheduleEntity): Long = 1L
             override suspend fun insertAll(schedules: List<ScheduleEntity>) {}
+            override suspend fun updateSchedule(schedule: ScheduleEntity) {}
             override suspend fun deleteSchedule(schedule: ScheduleEntity) {}
+            override suspend fun deleteById(id: Long) {}
             override suspend fun deleteByPackage(packageName: String) {}
             override suspend fun deleteAllSchedules() {}
         }

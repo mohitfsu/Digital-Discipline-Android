@@ -10,20 +10,22 @@ import org.junit.Test
 class InterventionCatalogTest {
 
     @Test
-    fun catalogContainsAll34Interventions() {
+    fun catalogContainsAll48Interventions() {
         val all = InterventionCatalog.getAllInterventions()
-        assertEquals(40, all.size)
+        assertEquals(48, all.size)
     }
 
     @Test
     fun verifyCategoryDistribution() {
-        assertEquals(10, InterventionCatalog.getByCategory(InterventionCategory.MOVEMENT).size)
+        assertEquals(11, InterventionCatalog.getByCategory(InterventionCategory.MOVEMENT).size)
         assertEquals(1, InterventionCatalog.getByCategory(InterventionCategory.UPPER_BODY).size)
         assertEquals(4, InterventionCatalog.getByCategory(InterventionCategory.BREATHING).size)
         assertEquals(3, InterventionCatalog.getByCategory(InterventionCategory.MEDITATION).size)
         assertEquals(6, InterventionCatalog.getByCategory(InterventionCategory.YOGA_MOBILITY).size)
         assertEquals(5, InterventionCatalog.getByCategory(InterventionCategory.PHYSICAL_RESET).size)
         assertEquals(11, InterventionCatalog.getByCategory(InterventionCategory.COGNITIVE).size)
+        assertEquals(4, InterventionCatalog.getByCategory(InterventionCategory.CREATIVE_FLOW).size)
+        assertEquals(3, InterventionCatalog.getByCategory(InterventionCategory.MINDFUL_PERSPECTIVE).size)
     }
 
     @Test

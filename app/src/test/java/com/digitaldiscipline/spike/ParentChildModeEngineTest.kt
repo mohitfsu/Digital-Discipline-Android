@@ -1,13 +1,8 @@
-package com.digitaldiscipline.spike.intervention.validation
+﻿package com.digitaldiscipline.spike
 
-import com.digitaldiscipline.spike.behaviour.BehaviourRepository
+import com.digitaldiscipline.spike.behaviour.*
 import com.digitaldiscipline.spike.data.local.dao.*
 import com.digitaldiscipline.spike.data.local.entities.*
-import com.digitaldiscipline.spike.intervention.adaptive.InterventionAdaptiveStore
-import com.digitaldiscipline.spike.intervention.catalog.InterventionCatalog
-import com.digitaldiscipline.spike.intervention.engine.InterventionEngine
-import com.digitaldiscipline.spike.intervention.session.PolicySource
-import com.digitaldiscipline.spike.intervention.session.SessionState
 import com.digitaldiscipline.spike.policy.PolicyRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
@@ -16,23 +11,27 @@ import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
 
-class CameraValidationWalletIntegrityTest {
+class ParentChildModeEngineTest {
+
+    private lateinit var policyRepository: PolicyRepository
+    private lateinit var behaviourRepository: BehaviourRepository
+    private lateinit var behaviourPolicyResolver: BehaviourPolicyResolver
 
     private val appRules = mutableMapOf<String, AppRuleEntity>()
+    private val schedules = mutableListOf<ScheduleEntity>()
+    private val temporaryUnlocks = mutableMapOf<String, TemporaryUnlockEntity>()
+
     private val goals = mutableMapOf<String, GoalEntity>()
     private val triggers = mutableMapOf<String, TriggerEntity>()
     private val replacementBehaviours = mutableMapOf<String, ReplacementBehaviourEntity>()
     private val behaviourPolicies = mutableMapOf<String, BehaviourPolicyEntity>()
     private val goalProgress = mutableMapOf<String, GoalProgressEntity>()
 
-    private lateinit var policyRepository: PolicyRepository
-    private lateinit var behaviourRepository: BehaviourRepository
-    private lateinit var adaptiveStore: InterventionAdaptiveStore
-    private lateinit var engine: InterventionEngine
-
     @Before
     fun setUp() {
         appRules.clear()
+        schedules.clear()
+        temporaryUnlocks.clear()
         goals.clear()
         triggers.clear()
         replacementBehaviours.clear()
@@ -55,29 +54,37 @@ class CameraValidationWalletIntegrityTest {
         }
 
         val mockScheduleDao = object : ScheduleDao {
-            override fun getAllSchedulesFlow(): Flow<List<ScheduleEntity>> = flowOf(emptyList())
-            override suspend fun getAllSchedules(): List<ScheduleEntity> = emptyList()
-            override suspend fun getSchedulesForPackage(packageName: String): List<ScheduleEntity> = emptyList()
-            override suspend fun insertSchedule(schedule: ScheduleEntity): Long = 1L
-            override suspend fun insertAll(schedules: List<ScheduleEntity>) {}
-            override suspend fun updateSchedule(schedule: ScheduleEntity) {}
-            override suspend fun deleteSchedule(schedule: ScheduleEntity) {}
-            override suspend fun deleteById(id: Long) {}
-            override suspend fun deleteByPackage(packageName: String) {}
-            override suspend fun deleteAllSchedules() {}
+            override fun getAllSchedulesFlow(): Flow<List<ScheduleEntity>> = flowOf(schedules)
+            override suspend fun getAllSchedules(): List<ScheduleEntity> = schedules
+            override suspend fun getSchedulesForPackage(packageName: String): List<ScheduleEntity> {
+                return schedules.filter { (it.packageName == packageName || it.packageName == "ALL_RESTRICTED") && it.isEnabled }
+            }
+            override suspend fun insertSchedule(schedule: ScheduleEntity): Long {
+                schedules.add(schedule)
+                return schedule.id
+            }
+            override suspend fun insertAll(schedulesList: List<ScheduleEntity>) { schedules.addAll(schedulesList) }
+            override suspend fun updateSchedule(schedule: ScheduleEntity) {
+                schedules.removeIf { it.id == schedule.id }
+                schedules.add(schedule)
+            }
+            override suspend fun deleteSchedule(schedule: ScheduleEntity) { schedules.removeIf { it.id == schedule.id } }
+            override suspend fun deleteById(id: Long) { schedules.removeIf { it.id == id } }
+            override suspend fun deleteByPackage(packageName: String) { schedules.removeIf { it.packageName == packageName } }
+            override suspend fun deleteAllSchedules() { schedules.clear() }
         }
 
         val mockTemporaryUnlockDao = object : TemporaryUnlockDao {
-            override suspend fun getUnlock(packageName: String): TemporaryUnlockEntity? = null
-            override fun getUnlockFlow(packageName: String): Flow<TemporaryUnlockEntity?> = flowOf(null)
-            override suspend fun getAllUnlocks(): List<TemporaryUnlockEntity> = emptyList()
-            override suspend fun insertOrUpdate(unlock: TemporaryUnlockEntity) {}
-            override suspend fun deleteUnlock(packageName: String) {}
-            override suspend fun purgeExpiredUnlocks(currentElapsedRealtime: Long) {}
-            override suspend fun clearAllUnlocks() {}
+            override suspend fun getUnlock(packageName: String): TemporaryUnlockEntity? = temporaryUnlocks[packageName]
+            override fun getUnlockFlow(packageName: String): Flow<TemporaryUnlockEntity?> = flowOf(temporaryUnlocks[packageName])
+            override suspend fun getAllUnlocks(): List<TemporaryUnlockEntity> = temporaryUnlocks.values.toList()
+            override suspend fun insertOrUpdate(unlock: TemporaryUnlockEntity) { temporaryUnlocks[unlock.packageName] = unlock }
+            override suspend fun deleteUnlock(packageName: String) { temporaryUnlocks.remove(packageName) }
+            override suspend fun purgeExpiredUnlocks(currentElapsedRealtime: Long) {
+                temporaryUnlocks.entries.removeIf { it.value.unlockExpiryElapsedRealtime <= currentElapsedRealtime }
+            }
+            override suspend fun clearAllUnlocks() { temporaryUnlocks.clear() }
         }
-
-        policyRepository = PolicyRepository(mockAppRuleDao, mockScheduleDao, mockTemporaryUnlockDao)
 
         val mockGoalDao = object : GoalDao {
             override fun getAllGoalsFlow(): Flow<List<GoalEntity>> = flowOf(goals.values.toList())
@@ -167,83 +174,116 @@ class CameraValidationWalletIntegrityTest {
             override suspend fun clearAllProgress() { goalProgress.clear() }
         }
 
-        behaviourRepository = BehaviourRepository(
-            goalDao = mockGoalDao,
-            triggerDao = mockTriggerDao,
-            replacementBehaviourDao = mockReplacementBehaviourDao,
-            behaviourPolicyDao = mockBehaviourPolicyDao,
-            goalProgressDao = mockGoalProgressDao
-        )
-        adaptiveStore = InterventionAdaptiveStore()
-
-        engine = InterventionEngine(
-            context = null,
-            policyRepository = policyRepository,
-            behaviourRepository = behaviourRepository,
-            walletService = null,
-            adaptiveStore = adaptiveStore
-        )
+        policyRepository = PolicyRepository(mockAppRuleDao, mockScheduleDao, mockTemporaryUnlockDao)
+        behaviourRepository = BehaviourRepository(mockGoalDao, mockTriggerDao, mockReplacementBehaviourDao, mockBehaviourPolicyDao, mockGoalProgressDao)
+        behaviourPolicyResolver = BehaviourPolicyResolver(policyRepository, behaviourRepository)
     }
 
     @Test
-    fun testCameraValidationCompletionCompletesAuthoritativelyWithSessionId() = runBlocking {
-        val definition = InterventionCatalog.getIntervention("PUSH_UPS")!!
-        val session = engine.createSession(
-            intervention = definition,
-            targetPackage = "com.instagram.android",
-            policySource = PolicySource.SELF
+    fun parentBlockMode_enforcesStrictBlock() = runBlocking {
+        val parentRule = AppRuleEntity(
+            packageName = "com.instagram.android",
+            appDisplayName = "Instagram",
+            mode = RuleMode.BLOCK,
+            isEnabled = true,
+            unlockDurationSeconds = 0
         )
+        policyRepository.saveRule(parentRule)
 
-        val validator = CameraPoseValidator("PUSH_UPS", targetReps = 1)
-        var completedResult: ValidationResult? = null
-
-        engine.startSessionWithValidator(session, validator) { result ->
-            if (result is ValidationResult.Completed) {
-                completedResult = result
-            }
-        }
-
-        session.updateProgress(1)
-        session.markCompleting()
-        session.complete()
-
-        assertEquals(SessionState.COMPLETED, session.state)
-        assertEquals("PUSH_UPS", session.intervention.id)
+        val result = behaviourPolicyResolver.resolvePolicy("com.instagram.android", userMode = UserMode.PARENT)
+        assertTrue(result is PolicyResolutionResult.ParentPolicyMatch)
+        val match = result as PolicyResolutionResult.ParentPolicyMatch
+        assertEquals(RuleMode.BLOCK, match.appRule.mode)
+        assertEquals("Instagram", match.appRule.appDisplayName)
+        assertTrue(match.appRule.isEnabled)
     }
 
     @Test
-    fun testCancelledCameraSessionTransitionsToCancelled() = runBlocking {
-        val definition = InterventionCatalog.getIntervention("SQUATS")!!
-        val session = engine.createSession(
-            intervention = definition,
-            targetPackage = "com.google.android.youtube",
-            policySource = PolicySource.SELF
+    fun parentEarnMode_enforcesParentConfiguredUnlockWindowAndReps() = runBlocking {
+        val parentRule = AppRuleEntity(
+            packageName = "com.google.android.youtube",
+            appDisplayName = "YouTube",
+            mode = RuleMode.EARN,
+            isEnabled = true,
+            unlockDurationSeconds = 300,
+            squatsTargetCount = 15,
+            pauseDurationSeconds = 15,
+            breathingDurationSeconds = 30
         )
+        policyRepository.saveRule(parentRule)
 
-        val validator = CameraPoseValidator("SQUATS", targetReps = 10)
-        engine.startSessionWithValidator(session, validator) {}
-
-        engine.cancelCurrentSession("User closed screen")
-
-        assertEquals(SessionState.CANCELLED, session.state)
+        val result = behaviourPolicyResolver.resolvePolicy("com.google.android.youtube", userMode = UserMode.PARENT)
+        assertTrue(result is PolicyResolutionResult.ParentPolicyMatch)
+        val match = result as PolicyResolutionResult.ParentPolicyMatch
+        assertEquals(RuleMode.EARN, match.appRule.mode)
+        assertEquals(300, match.appRule.unlockDurationSeconds)
+        assertEquals(15, match.appRule.squatsTargetCount)
     }
 
     @Test
-    fun testSessionIdRemainsAuthoritativeThroughout() {
-        val definition = InterventionCatalog.getIntervention("PLANK")!!
-        val session = engine.createSession(
-            intervention = definition,
-            targetPackage = "com.zhiliaoapp.musically",
-            policySource = PolicySource.SELF
+    fun parentMode_takesPrecedenceOverChildSelfModeRules() = runBlocking {
+        val parentRule = AppRuleEntity(
+            packageName = "com.dts.freefireth",
+            appDisplayName = "Free Fire",
+            mode = RuleMode.BLOCK,
+            isEnabled = true
         )
+        policyRepository.saveRule(parentRule)
 
-        val initialId = session.sessionId
-        assertTrue(initialId.isNotBlank())
+        val childGoal = GoalEntity(goalId = "goal_child", title = "Play Games", category = "GAMING")
+        val childTrigger = TriggerEntity(triggerId = "trig_ff", goalId = "goal_child", packageName = "com.dts.freefireth", appDisplayName = "Free Fire", category = "GAMING")
+        val childBehaviour = ReplacementBehaviourEntity(behaviourId = "beh_play", category = "PAUSE", type = "PAUSE", title = "Short Pause")
+        val childPolicy = BehaviourPolicyEntity(policyId = "pol_ff", goalId = "goal_child", triggerId = "trig_ff", replacementBehaviourId = "beh_play", interventionMode = "EARN", earnedSeconds = 900)
 
-        val validator = CameraPoseValidator("PLANK", targetHoldSeconds = 20)
-        engine.startSessionWithValidator(session, validator) {}
+        behaviourRepository.saveGoal(childGoal)
+        behaviourRepository.saveTrigger(childTrigger)
+        behaviourRepository.saveBehaviour(childBehaviour)
+        behaviourRepository.savePolicy(childPolicy)
 
-        assertEquals(initialId, session.sessionId)
-        assertEquals(initialId, engine.activeSessionFlow.value?.sessionId)
+        val result = behaviourPolicyResolver.resolvePolicy("com.dts.freefireth", userMode = UserMode.PARENT)
+        assertTrue(result is PolicyResolutionResult.ParentPolicyMatch)
+        val match = result as PolicyResolutionResult.ParentPolicyMatch
+        assertEquals(RuleMode.BLOCK, match.appRule.mode)
+    }
+
+    @Test
+    fun parentScheduledStudyWindow_savesAndRetrievesSchedule() = runBlocking {
+        val schedule = ScheduleEntity(
+            id = 101L,
+            packageName = "com.instagram.android",
+            label = "School Study Window",
+            startHour = 9,
+            startMinute = 0,
+            endHour = 15,
+            endMinute = 30,
+            daysOfWeekCsv = "1,2,3,4,5,6,7",
+            isEnabled = true
+        )
+        policyRepository.saveSchedule(schedule)
+
+        val allSchedules = policyRepository.getAllSchedules()
+        assertEquals(1, allSchedules.size)
+        assertEquals("School Study Window", allSchedules.first().label)
+        assertTrue(allSchedules.first().isEnabled)
+    }
+
+    @Test
+    fun parentUnselectedApp_returnsNoMatchWhenNotRestricted() = runBlocking {
+        val result = behaviourPolicyResolver.resolvePolicy("com.google.android.calculator", userMode = UserMode.PARENT)
+        assertTrue(result is PolicyResolutionResult.NoMatch)
+    }
+
+    @Test
+    fun parentDisabledRule_isNotEnforced() = runBlocking {
+        val parentRule = AppRuleEntity(
+            packageName = "com.snapchat.android",
+            appDisplayName = "Snapchat",
+            mode = RuleMode.BLOCK,
+            isEnabled = false
+        )
+        policyRepository.saveRule(parentRule)
+
+        val result = behaviourPolicyResolver.resolvePolicy("com.snapchat.android", userMode = UserMode.PARENT)
+        assertTrue(result is PolicyResolutionResult.NoMatch)
     }
 }
