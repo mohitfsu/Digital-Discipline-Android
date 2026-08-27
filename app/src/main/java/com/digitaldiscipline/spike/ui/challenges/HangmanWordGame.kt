@@ -35,20 +35,71 @@ private data class HangmanWord(
 )
 
 private val HANGMAN_DICTIONARY = listOf(
-    HangmanWord("DISCIPLINE", "Consistency over impulse"),
-    HangmanWord("MINDFUL", "Present in the current moment"),
-    HangmanWord("SERENITY", "Peace of mind and stillness"),
-    HangmanWord("PATIENCE", "Power to pause before action"),
-    HangmanWord("COURAGE", "Bravery to choose growth"),
-    HangmanWord("WISDOM", "Clear perception and sound judgment"),
-    HangmanWord("FOCUS", "Undivided presence and attention"),
-    HangmanWord("BREATHE", "Inhale slowly and reset"),
-    HangmanWord("STRENGTH", "Inner power to resist distraction"),
-    HangmanWord("CLARITY", "Mental calmness without haze"),
-    HangmanWord("GRATITUDE", "Appreciating the now"),
-    HangmanWord("HARMONY", "Balance across mind and body"),
-    HangmanWord("KINDNESS", "Compassion in thought and action"),
-    HangmanWord("RESILIENCE", "Bouncing back stronger from urges")
+    // 1. Mindful Focus & Presence
+    HangmanWord("MINDFUL", "Present in the current moment", "MINDFULNESS"),
+    HangmanWord("FOCUS", "Undivided presence and attention", "DEEP WORK"),
+    HangmanWord("BREATHE", "Inhale deeply and reset your nervous system", "BREATHWORK"),
+    HangmanWord("AWARENESS", "Observing thoughts without reacting", "MINDFULNESS"),
+    HangmanWord("STILLNESS", "Calmness amidst external chaos", "INNER PEACE"),
+    HangmanWord("PRESENCE", "Being fully here right now", "MINDFULNESS"),
+    HangmanWord("MEDITATE", "Training the mind for calm clarity", "ZEN PRACTICE"),
+    HangmanWord("CALMNESS", "A peaceful state of mind", "INNER PEACE"),
+    HangmanWord("SILENCE", "Finding quiet within the noise", "REFLECTION"),
+    HangmanWord("GROUNDED", "Rooted in physical reality", "SOMATIC AWARENESS"),
+
+    // 2. Self-Discipline & Growth
+    HangmanWord("DISCIPLINE", "Consistency over temporary impulse", "CORE VALUE"),
+    HangmanWord("WILLPOWER", "Choosing long-term goals over quick dopamine", "SELF CONTROL"),
+    HangmanWord("PATIENCE", "The power to pause before action", "VIRTUE"),
+    HangmanWord("COURAGE", "Bravery to choose growth over comfort", "GROWTH"),
+    HangmanWord("STRENGTH", "Inner fortitude to resist distraction", "RESILIENCE"),
+    HangmanWord("RESILIENCE", "Bouncing back stronger from urges", "GROWTH"),
+    HangmanWord("MASTERY", "Gradual improvement through deliberate practice", "ACHIEVEMENT"),
+    HangmanWord("PROGRESS", "Moving forward one small step at a time", "MOMENTUM"),
+    HangmanWord("PERSISTENCE", "Continuing onward despite resistance", "TENACITY"),
+    HangmanWord("GRIT", "Passion and perseverance for long-term goals", "CHARACTER"),
+
+    // 3. Mental Clarity & Wisdom
+    HangmanWord("CLARITY", "Mental calmness free of digital fog", "SHARP FOCUS"),
+    HangmanWord("WISDOM", "Clear perception and sound judgment", "PHILOSOPHY"),
+    HangmanWord("PURPOSE", "The deeper reason guiding your daily actions", "INTENTION"),
+    HangmanWord("INTENTION", "Acting with deliberate conscious choice", "MINDFUL ACTION"),
+    HangmanWord("INSIGHT", "Deep understanding born from quiet contemplation", "CLARITY"),
+    HangmanWord("REFLECT", "Looking inward before reacting outward", "SELF AWARENESS"),
+    HangmanWord("PERSPECTIVE", "Seeing the bigger picture beyond the screen", "STOIC THOUGHT"),
+    HangmanWord("VISION", "Holding a clear picture of who you want to become", "ASPIRATION"),
+    HangmanWord("LUCID", "Expressed clearly and easy to understand", "CLEAR MIND"),
+
+    // 4. Emotional Wellness & Balance
+    HangmanWord("SERENITY", "Peace of mind and stillness", "TRANQUILITY"),
+    HangmanWord("GRATITUDE", "Appreciating the abundance of the present", "WELLBEING"),
+    HangmanWord("HARMONY", "Balance across body, mind, and time", "EQUILIBRIUM"),
+    HangmanWord("KINDNESS", "Compassion in thought, word, and action", "HEARTFULNESS"),
+    HangmanWord("TRANQUIL", "Free from agitation or disturbance", "CALM"),
+    HangmanWord("EMPATHY", "Understanding the feelings of others", "CONNECTION"),
+    HangmanWord("COMPASSION", "Sympathetic consciousness with desire to help", "VIRTUE"),
+    HangmanWord("BALANCE", "Equally distributed focus and energy", "LIFE HARMONY"),
+    HangmanWord("GRACE", "Elegance and composure under pressure", "ELEGANCE"),
+
+    // 5. Digital Health & Freedom
+    HangmanWord("REWIRE", "Neuroplasticity changing brain pathways", "HABIT REBUILD"),
+    HangmanWord("DETOX", "Clearing digital clutter and overstimulation", "DIGITAL HEALTH"),
+    HangmanWord("UNPLUG", "Stepping away from screens to live real life", "DISCONNECT"),
+    HangmanWord("BOUNDARIES", "Protecting your sacred focus time", "SELF CARE"),
+    HangmanWord("FREEDOM", "Living by choice rather than algorithm feeds", "SOVEREIGNTY"),
+    HangmanWord("RECHARGE", "Restoring mental energy without mindless scrolling", "RESTORATION"),
+    HangmanWord("SIMPLICITY", "Eliminating excess to cherish what matters", "ESSENTIALISM"),
+    HangmanWord("PRIORITY", "The single most important focus today", "ESSENTIALISM"),
+
+    // 6. Nature & Grounding
+    HangmanWord("SUNSHINE", "Natural daylight resetting circadian rhythm", "NATURE RESET"),
+    HangmanWord("MOUNTAIN", "Steadfast, unshakable, and majestic", "STOIC NATURE"),
+    HangmanWord("RIVER", "Flowing continuously around obstacles", "FLOW STATE"),
+    HangmanWord("FOREST", "Calming trees reducing cortisol and stress", "SHINRIN-YOKU"),
+    HangmanWord("HORIZON", "Looking into the far distance to rest your eyes", "EYE RESET"),
+    HangmanWord("OCEAN", "Vast, rhythmic waves cultivating deep calm", "SERENITY"),
+    HangmanWord("BREEZE", "Gentle refreshing air awakening the senses", "VITALITY"),
+    HangmanWord("SUNRISE", "A fresh dawn and a clean slate each morning", "NEW DAY")
 )
 
 @Composable
