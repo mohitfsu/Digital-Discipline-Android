@@ -48,8 +48,9 @@ fun ChildDashboardScreen(
     onOpenParentAdmin: () -> Unit,
     onSwitchMode: (UserMode) -> Unit
 ) {
+    val pairedFamilyId by preferencesManager.pairedFamilyIdFlow.collectAsState(initial = null)
     val pairedChildName by preferencesManager.pairedChildNameFlow.collectAsState(initial = "")
-    val isPaired = pairedChildName.isNotBlank()
+    val isPaired = !pairedFamilyId.isNullOrBlank()
     val lastSync by preferencesManager.lastPolicySyncFlow.collectAsState(initial = 0L)
     val autoBlockGames by preferencesManager.autoBlockGamesFlow.collectAsState(initial = true)
     val autoBlockSocial by preferencesManager.autoBlockSocialFlow.collectAsState(initial = true)
@@ -317,6 +318,15 @@ fun ChildDashboardScreen(
                         modifier = Modifier.fillMaxWidth().height(42.dp)
                     ) {
                         Text("🔄 1-Tap Sync Rules Now", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    TextButton(
+                        onClick = onNavigateToPairing,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("🔗 Re-Pair / Enter New Pairing Code", color = Color(0xFF38BDF8), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                     }
                 } else {
                     Button(

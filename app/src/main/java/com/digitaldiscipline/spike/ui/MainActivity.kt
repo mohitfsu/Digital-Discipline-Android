@@ -110,7 +110,9 @@ class MainActivity : ComponentActivity() {
                                         lifecycleScope.launch {
                                             preferencesManager.setUserMode(UserMode.CHILD.name)
                                             preferencesManager.setDeviceRole("CHILD_DEVICE")
+                                            preferencesManager.setPairedFamilyId("")
                                             preferencesManager.setOnboardingCompleted(true)
+                                            currentScreen = AppScreen.DEVICE_PAIRING
                                         }
                                     },
                                     onSelectOfficeMode = {
