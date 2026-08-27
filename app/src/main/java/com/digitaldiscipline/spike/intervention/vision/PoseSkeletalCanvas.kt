@@ -9,11 +9,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import com.google.mlkit.vision.pose.Pose
 import com.google.mlkit.vision.pose.PoseLandmark
+import kotlin.math.max
 
 /**
  * Compose Canvas that draws real-time skeletal tracking wireframe
- * covering all body joints, head, hands, and feet with visual feedback
- * for standing & shaking exercises.
+ * covering all 33 body joints, facial features, hands, torso, and feet
+ * with aspect-ratio-corrected (FILL_CENTER) transformation and dynamic form feedback.
  */
 @Composable
 fun PoseSkeletalCanvas(
@@ -29,25 +30,29 @@ fun PoseSkeletalCanvas(
 
         val canvasWidth = size.width
         val canvasHeight = size.height
+        if (canvasWidth <= 0f || canvasHeight <= 0f) return@Canvas
 
-        val scaleX = canvasWidth / imageWidth.toFloat()
-        val scaleY = canvasHeight / imageHeight.toFloat()
+        // Accurate aspect-ratio scaling matching PreviewView.ScaleType.FILL_CENTER
+        val scale = max(canvasWidth / imageWidth.toFloat(), canvasHeight / imageHeight.toFloat())
+        val scaledWidth = imageWidth * scale
+        val scaledHeight = imageHeight * scale
+        val offsetX = (canvasWidth - scaledWidth) / 2f
+        val offsetY = (canvasHeight - scaledHeight) / 2f
 
         fun transformPoint(landmark: PoseLandmark?): Offset? {
             if (landmark == null || landmark.inFrameLikelihood < 0.25f) return null
             val pos = landmark.position
 
-            // Handle mirroring for front-facing camera
-            val x = if (isFrontCamera) {
-                canvasWidth - (pos.x * scaleX)
+            val rawX = if (isFrontCamera) {
+                (imageWidth - pos.x) * scale + offsetX
             } else {
-                pos.x * scaleX
+                pos.x * scale + offsetX
             }
-            val y = pos.y * scaleY
-            return Offset(x, y)
+            val rawY = pos.y * scale + offsetY
+            return Offset(rawX, rawY)
         }
 
-        fun drawBone(p1: PoseLandmark?, p2: PoseLandmark?, color: Color) {
+        fun drawBone(p1: PoseLandmark?, p2: PoseLandmark?, color: Color, strokeWidth: Float = if (isActionActive) 8f else 5.5f) {
             val o1 = transformPoint(p1)
             val o2 = transformPoint(p2)
             if (o1 != null && o2 != null) {
@@ -55,7 +60,7 @@ fun PoseSkeletalCanvas(
                     color = color,
                     start = o1,
                     end = o2,
-                    strokeWidth = if (isActionActive) 7f else 5f,
+                    strokeWidth = strokeWidth,
                     cap = StrokeCap.Round
                 )
             }
@@ -67,6 +72,8 @@ fun PoseSkeletalCanvas(
         val rightEye = pose.getPoseLandmark(PoseLandmark.RIGHT_EYE)
         val leftEar = pose.getPoseLandmark(PoseLandmark.LEFT_EAR)
         val rightEar = pose.getPoseLandmark(PoseLandmark.RIGHT_EAR)
+        val mouthLeft = pose.getPoseLandmark(PoseLandmark.LEFT_MOUTH)
+        val mouthRight = pose.getPoseLandmark(PoseLandmark.RIGHT_MOUTH)
 
         // Upper body landmarks
         val leftShoulder = pose.getPoseLandmark(PoseLandmark.LEFT_SHOULDER)
@@ -104,22 +111,23 @@ fun PoseSkeletalCanvas(
         val limbColor = if (isActionActive) Color(0xFF6EE7B7) else Color(0xFF38BDF8)
         val headColor = if (isActionActive) Color(0xFFA7F3D0) else Color(0xFF7DD3FC)
 
-        // 1. Draw Head & Face
+        // 1. Draw Head & Face (6 landmarks)
         drawBone(leftEye, nose, headColor)
         drawBone(rightEye, nose, headColor)
         drawBone(leftEye, leftEar, headColor)
         drawBone(rightEye, rightEar, headColor)
-        drawBone(nose, leftShoulder, headColor.copy(alpha = 0.5f))
-        drawBone(nose, rightShoulder, headColor.copy(alpha = 0.5f))
+        drawBone(mouthLeft, mouthRight, headColor)
+        drawBone(nose, leftShoulder, headColor.copy(alpha = 0.6f))
+        drawBone(nose, rightShoulder, headColor.copy(alpha = 0.6f))
 
-        // 2. Upper Body & Arms
-        drawBone(leftShoulder, rightShoulder, torsoColor)
+        // 2. Upper Body & Arms (6 landmarks)
+        drawBone(leftShoulder, rightShoulder, torsoColor, strokeWidth = 9f)
         drawBone(leftShoulder, leftElbow, limbColor)
         drawBone(leftElbow, leftWrist, limbColor)
         drawBone(rightShoulder, rightElbow, limbColor)
         drawBone(rightElbow, rightWrist, limbColor)
 
-        // Hands & Fingers
+        // 3. Hands & Fingers (6 landmarks)
         drawBone(leftWrist, leftThumb, limbColor)
         drawBone(leftWrist, leftIndex, limbColor)
         drawBone(leftWrist, leftPinky, limbColor)
@@ -127,18 +135,18 @@ fun PoseSkeletalCanvas(
         drawBone(rightWrist, rightIndex, limbColor)
         drawBone(rightWrist, rightPinky, limbColor)
 
-        // 3. Torso Box
-        drawBone(leftShoulder, leftHip, torsoColor)
-        drawBone(rightShoulder, rightHip, torsoColor)
-        drawBone(leftHip, rightHip, torsoColor)
+        // 4. Torso Box (4 landmarks)
+        drawBone(leftShoulder, leftHip, torsoColor, strokeWidth = 8f)
+        drawBone(rightShoulder, rightHip, torsoColor, strokeWidth = 8f)
+        drawBone(leftHip, rightHip, torsoColor, strokeWidth = 9f)
 
-        // 4. Lower Body & Legs
-        drawBone(leftHip, leftKnee, limbColor)
-        drawBone(leftKnee, leftAnkle, limbColor)
-        drawBone(rightHip, rightKnee, limbColor)
-        drawBone(rightKnee, rightAnkle, limbColor)
+        // 5. Lower Body & Legs (4 landmarks)
+        drawBone(leftHip, leftKnee, limbColor, strokeWidth = 8f)
+        drawBone(leftKnee, leftAnkle, limbColor, strokeWidth = 8f)
+        drawBone(rightHip, rightKnee, limbColor, strokeWidth = 8f)
+        drawBone(rightKnee, rightAnkle, limbColor, strokeWidth = 8f)
 
-        // Feet & Toes
+        // 6. Feet & Toes (6 landmarks)
         drawBone(leftAnkle, leftHeel, limbColor)
         drawBone(leftAnkle, leftFootIndex, limbColor)
         drawBone(leftHeel, leftFootIndex, limbColor)
@@ -146,21 +154,25 @@ fun PoseSkeletalCanvas(
         drawBone(rightAnkle, rightFootIndex, limbColor)
         drawBone(rightHeel, rightFootIndex, limbColor)
 
-        // 5. Draw All Key Joints
+        // 7. Draw All 33 Key Joint Marker Points
         val jointPoints = listOfNotNull(
             transformPoint(nose),
+            transformPoint(leftEye),
+            transformPoint(rightEye),
             transformPoint(leftEar),
             transformPoint(rightEar),
+            transformPoint(mouthLeft),
+            transformPoint(mouthRight),
             transformPoint(leftShoulder),
             transformPoint(rightShoulder),
             transformPoint(leftElbow),
             transformPoint(rightElbow),
             transformPoint(leftWrist),
             transformPoint(rightWrist),
-            transformPoint(leftIndex),
-            transformPoint(rightIndex),
             transformPoint(leftThumb),
             transformPoint(rightThumb),
+            transformPoint(leftIndex),
+            transformPoint(rightIndex),
             transformPoint(leftPinky),
             transformPoint(rightPinky),
             transformPoint(leftHip),
@@ -176,16 +188,16 @@ fun PoseSkeletalCanvas(
         )
 
         jointPoints.forEach { pt ->
-            // Outer glow circle
+            // Outer radiant glow circle
             drawCircle(
-                color = if (isActionActive) Color(0xFF10B981).copy(alpha = 0.6f) else Color(0xFF0284C7).copy(alpha = 0.5f),
-                radius = if (isActionActive) 14f else 11f,
+                color = if (isActionActive) Color(0xFF10B981).copy(alpha = 0.65f) else Color(0xFF0284C7).copy(alpha = 0.55f),
+                radius = if (isActionActive) 13f else 10f,
                 center = pt
             )
-            // Solid center joint
+            // Solid center joint bead
             drawCircle(
                 color = if (isActionActive) Color(0xFFA7F3D0) else Color(0xFF67E8F9),
-                radius = if (isActionActive) 7f else 5.5f,
+                radius = if (isActionActive) 6.5f else 5f,
                 center = pt
             )
         }

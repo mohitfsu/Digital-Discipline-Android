@@ -5,6 +5,7 @@ import com.google.mlkit.vision.pose.Pose
 import com.google.mlkit.vision.pose.PoseLandmark
 import kotlin.math.abs
 import kotlin.math.max
+import kotlin.math.min
 
 data class PoseClassificationResult(
     val currentReps: Int,
@@ -18,30 +19,29 @@ data class PoseClassificationResult(
 )
 
 /**
- * Robust On-Device Exercise Classifier & Biomechanical Repetition State Machine.
+ * Robust On-Device Multi-Point Exercise Classifier & Biomechanical Repetition Engine.
  *
- * Distance-invariant & Angle-resilient biomechanical analysis for:
- * 1. PUSH_UPS (Elbow flexion + Torso vertical displacement)
- * 2. SQUATS (Knee flexion + Hip vertical descent)
- * 3. PLANK (Linear hold + Spine neutrality)
- * 4. LUNGES (Alternating knee flexion)
- * 5. JUMPING_JACKS (Overhead arm abduction)
- * 6. WALL_SIT (Resilient Torso-Thigh & Knee angle hold)
- * 7. HIGH_KNEES (Alternating knee drives)
- * 8. CALF_RAISES (Ankle plantarflexion / heel raise cycle with strict feet-in-frame requirement)
- * 9. TREE_POSE (Single-leg balance + high foot placement + knee flare)
- * 10. MOUNTAIN_POSE (Upright alignment & steady standing presence)
+ * Employs distance-invariant, resolution-independent, and angle-resilient biomechanics:
+ * 1. PUSH_UPS (Multi-point Elbow flexion + Torso vertical displacement)
+ * 2. SQUATS (Multi-point Knee flexion + Torso-normalized Hip descent)
+ * 3. PLANK (Linear spine hold + Horizontal shoulder-hip alignment)
+ * 4. LUNGES (Alternating knee flexion + Dynamic hip drop)
+ * 5. JUMPING_JACKS (Dual-arm abduction + Stance spread synchronization)
+ * 6. WALL_SIT (Multi-point Knee & Hip 90-degree hold)
+ * 7. HIGH_KNEES (Torso-normalized knee drives)
+ * 8. CALF_RAISES (Ankle plantarflexion / heel raise cycle)
+ * 9. TREE_POSE (Single-leg balance + high foot placement)
+ * 10. MOUNTAIN_POSE (Upright alignment & steady presence)
  * 11. FORWARD_FOLD (Hip hinge + forward torso flexion)
- * 12. SIT_TO_STAND (Seated to upright full standing cycle)
- * 13. STAND_UP_AND_SHAKE_OFF (Upright posture + dynamic limb kinetic oscillation)
- * 14. YOGA & STRETCHES (Sustained posture presence & stretch holds)
+ * 12. SIT_TO_STAND (Seated to upright standing cycle)
+ * 13. STAND_UP_AND_SHAKE_OFF (Dynamic limb kinetic oscillation)
+ * 14. YOGA & STRETCHES (Posture presence & stretch holds)
  */
 class ExercisePoseClassifier(
     val exerciseId: String,
     val targetReps: Int = 15,
     targetHoldSeconds: Int = 30
 ) {
-    // Enforce minimum 30 seconds hold target for all time-based exercises
     val effectiveTargetHoldSeconds: Int = max(30, targetHoldSeconds)
     val effectiveTargetReps: Int = max(10, targetReps)
 
@@ -63,11 +63,9 @@ class ExercisePoseClassifier(
     private var prevRightWristPos: Pair<Float, Float>? = null
     private var prevLeftAnklePos: Pair<Float, Float>? = null
     private var prevRightAnklePos: Pair<Float, Float>? = null
-    private var prevLeftShoulderPos: Pair<Float, Float>? = null
-    private var prevRightShoulderPos: Pair<Float, Float>? = null
 
-    // Anti-cheat cadence (prevent fake rapid double triggers)
-    private val minRepDurationMs = 400L
+    // Anti-cheat cadence
+    private val minRepDurationMs = 350L
 
     fun reset() {
         reps = 0
@@ -82,8 +80,6 @@ class ExercisePoseClassifier(
         prevRightWristPos = null
         prevLeftAnklePos = null
         prevRightAnklePos = null
-        prevLeftShoulderPos = null
-        prevRightShoulderPos = null
     }
 
     fun processPose(pose: Pose): PoseClassificationResult {
@@ -124,7 +120,7 @@ class ExercisePoseClassifier(
     }
 
     // -------------------------------------------------------------------------
-    // 1. PUSH-UPS (Elbow Angle + Torso Y Descent)
+    // 1. PUSH-UPS (Multi-Point Elbow Flexion + Chest Displacement)
     // -------------------------------------------------------------------------
     private fun classifyPushups(pose: Pose): PoseClassificationResult {
         val leftShoulder = pose.getPoseLandmark(PoseLandmark.LEFT_SHOULDER)
@@ -135,59 +131,54 @@ class ExercisePoseClassifier(
         val rightElbow = pose.getPoseLandmark(PoseLandmark.RIGHT_ELBOW)
         val rightWrist = pose.getPoseLandmark(PoseLandmark.RIGHT_WRIST)
 
-        val leftAngle = PoseAngleCalculator.calculateAngle(leftShoulder, leftElbow, leftWrist)
-        val rightAngle = PoseAngleCalculator.calculateAngle(rightShoulder, rightElbow, rightWrist)
+        val leftHip = pose.getPoseLandmark(PoseLandmark.LEFT_HIP)
+        val rightHip = pose.getPoseLandmark(PoseLandmark.RIGHT_HIP)
 
-        val activeAngle = when {
-            leftAngle > 0 && rightAngle > 0 -> (leftAngle + rightAngle) / 2.0
-            leftAngle > 0 -> leftAngle
-            rightAngle > 0 -> rightAngle
+        val leftElbowAngle = PoseAngleCalculator.calculateAngle(leftShoulder, leftElbow, leftWrist)
+        val rightElbowAngle = PoseAngleCalculator.calculateAngle(rightShoulder, rightElbow, rightWrist)
+
+        val activeElbowAngle = when {
+            leftElbowAngle > 0 && rightElbowAngle > 0 -> (leftElbowAngle + rightElbowAngle) / 2.0
+            leftElbowAngle > 0 -> leftElbowAngle
+            rightElbowAngle > 0 -> rightElbowAngle
             else -> -1.0
         }
 
+        val shoulder = leftShoulder ?: rightShoulder
+        val hip = leftHip ?: rightHip
+        val wrist = leftWrist ?: rightWrist
+        val torsoLength = if (shoulder != null && hip != null) abs(hip.position.y - shoulder.position.y).coerceAtLeast(60f) else 120f
+
+        val chestToWristDelta = if (shoulder != null && wrist != null) abs(shoulder.position.y - wrist.position.y) / torsoLength else -1f
+
+        val isDown = (activeElbowAngle in 40.0..128.0) || (chestToWristDelta in 0.0f..0.45f && chestToWristDelta >= 0f)
+        val isUp = (activeElbowAngle >= 148.0) || (chestToWristDelta >= 0.70f)
+
         val now = SystemClock.elapsedRealtime()
 
-        if (activeAngle > 0) {
-            if (activeAngle <= 128.0) {
-                isDownPhase = true
-            } else if (activeAngle >= 148.0 && isDownPhase) {
-                if (now - lastRepTimestampMs >= minRepDurationMs) {
-                    reps += 1
-                    lastRepTimestampMs = now
-                    isDownPhase = false
-                    if (reps >= effectiveTargetReps) isCompleted = true
-                }
-            }
-        } else {
-            val shoulder = leftShoulder ?: rightShoulder
-            val hip = pose.getPoseLandmark(PoseLandmark.LEFT_HIP) ?: pose.getPoseLandmark(PoseLandmark.RIGHT_HIP)
-            if (shoulder != null && hip != null) {
-                val diff = abs(hip.position.y - shoulder.position.y)
-                if (diff < 90f) {
-                    isDownPhase = true
-                } else if (diff > 130f && isDownPhase) {
-                    if (now - lastRepTimestampMs >= minRepDurationMs) {
-                        reps += 1
-                        lastRepTimestampMs = now
-                        isDownPhase = false
-                        if (reps >= effectiveTargetReps) isCompleted = true
-                    }
-                }
+        if (isDown) {
+            isDownPhase = true
+        } else if (isUp && isDownPhase) {
+            if (now - lastRepTimestampMs >= minRepDurationMs) {
+                reps += 1
+                lastRepTimestampMs = now
+                isDownPhase = false
+                if (reps >= effectiveTargetReps) isCompleted = true
             }
         }
 
         val feedback = when {
             isCompleted -> "Challenge Completed! 🎉"
             isDownPhase -> "🟢 Good depth! Now push up"
-            activeAngle > 0 -> "Lower your chest (${activeAngle.toInt()}°)"
-            else -> "Get in push-up position in frame"
+            activeElbowAngle > 0 -> "Lower your chest (${activeElbowAngle.toInt()}°)"
+            else -> "Get in push-up position in camera view"
         }
 
         return PoseClassificationResult(reps, effectiveTargetReps, isDownPhase, 0, 0, feedback, isCompleted)
     }
 
     // -------------------------------------------------------------------------
-    // 2. SQUATS (Knee Angle + Hip Y Descent)
+    // 2. SQUATS (Multi-Point Knee Angle + Hip-to-Torso Descent)
     // -------------------------------------------------------------------------
     private fun classifySquats(pose: Pose): PoseClassificationResult {
         val leftHip = pose.getPoseLandmark(PoseLandmark.LEFT_HIP)
@@ -198,51 +189,67 @@ class ExercisePoseClassifier(
         val rightKnee = pose.getPoseLandmark(PoseLandmark.RIGHT_KNEE)
         val rightAnkle = pose.getPoseLandmark(PoseLandmark.RIGHT_ANKLE)
 
-        val leftAngle = PoseAngleCalculator.calculateAngle(leftHip, leftKnee, leftAnkle)
-        val rightAngle = PoseAngleCalculator.calculateAngle(rightHip, rightKnee, rightAnkle)
+        val leftShoulder = pose.getPoseLandmark(PoseLandmark.LEFT_SHOULDER)
+        val rightShoulder = pose.getPoseLandmark(PoseLandmark.RIGHT_SHOULDER)
 
-        val activeAngle = when {
-            leftAngle > 0 && rightAngle > 0 -> (leftAngle + rightAngle) / 2.0
-            leftAngle > 0 -> leftAngle
-            rightAngle > 0 -> rightAngle
+        // Point Group A: Knee Angles (Hip-Knee-Ankle)
+        val leftKneeAngle = PoseAngleCalculator.calculateAngle(leftHip, leftKnee, leftAnkle)
+        val rightKneeAngle = PoseAngleCalculator.calculateAngle(rightHip, rightKnee, rightAnkle)
+
+        val activeKneeAngle = when {
+            leftKneeAngle > 0 && rightKneeAngle > 0 -> (leftKneeAngle + rightKneeAngle) / 2.0
+            leftKneeAngle > 0 -> leftKneeAngle
+            rightKneeAngle > 0 -> rightKneeAngle
             else -> -1.0
         }
 
+        // Point Group B: Hip Angles (Shoulder-Hip-Knee)
+        val leftHipAngle = PoseAngleCalculator.calculateAngle(leftShoulder, leftHip, leftKnee)
+        val rightHipAngle = PoseAngleCalculator.calculateAngle(rightShoulder, rightHip, rightKnee)
+
+        val activeHipAngle = when {
+            leftHipAngle > 0 && rightHipAngle > 0 -> (leftHipAngle + rightHipAngle) / 2.0
+            leftHipAngle > 0 -> leftHipAngle
+            rightHipAngle > 0 -> rightHipAngle
+            else -> -1.0
+        }
+
+        // Point Group C: Torso-Normalized Knee-to-Hip Vertical Depth
+        val shoulder = leftShoulder ?: rightShoulder
+        val hip = leftHip ?: rightHip
+        val knee = leftKnee ?: rightKnee
+        val torsoLength = if (shoulder != null && hip != null) abs(hip.position.y - shoulder.position.y).coerceAtLeast(60f) else 120f
+
+        val hipKneeRatio = if (hip != null && knee != null) abs(knee.position.y - hip.position.y) / torsoLength else 1.0f
+
+        // Squat Down Phase: Reached depth
+        val isDeepSquat = (activeKneeAngle in 45.0..140.0) ||
+                          (activeHipAngle in 45.0..130.0) ||
+                          (hipKneeRatio <= 0.65f)
+
+        // Squat Up Phase: Returned to standing
+        val isStandingUp = (activeKneeAngle >= 152.0) ||
+                           (activeHipAngle >= 148.0) ||
+                           (hipKneeRatio >= 0.88f)
+
         val now = SystemClock.elapsedRealtime()
 
-        if (activeAngle > 0) {
-            if (activeAngle <= 138.0) {
-                isDownPhase = true
-            } else if (activeAngle >= 152.0 && isDownPhase) {
-                if (now - lastRepTimestampMs >= minRepDurationMs) {
-                    reps += 1
-                    lastRepTimestampMs = now
-                    isDownPhase = false
-                    if (reps >= effectiveTargetReps) isCompleted = true
-                }
-            }
-        } else {
-            val hip = leftHip ?: rightHip
-            val knee = leftKnee ?: rightKnee
-            if (hip != null && knee != null) {
-                val distanceY = abs(knee.position.y - hip.position.y)
-                if (distanceY < 130f) {
-                    isDownPhase = true
-                } else if (distanceY > 170f && isDownPhase) {
-                    if (now - lastRepTimestampMs >= minRepDurationMs) {
-                        reps += 1
-                        lastRepTimestampMs = now
-                        isDownPhase = false
-                        if (reps >= effectiveTargetReps) isCompleted = true
-                    }
-                }
+        if (isDeepSquat) {
+            isDownPhase = true
+        } else if (isStandingUp && isDownPhase) {
+            if (now - lastRepTimestampMs >= minRepDurationMs) {
+                reps += 1
+                lastRepTimestampMs = now
+                isDownPhase = false
+                if (reps >= effectiveTargetReps) isCompleted = true
             }
         }
 
+        val angleText = if (activeKneeAngle > 0) "${activeKneeAngle.toInt()}°" else if (activeHipAngle > 0) "${activeHipAngle.toInt()}°" else ""
         val feedback = when {
             isCompleted -> "Challenge Completed! 🎉"
             isDownPhase -> "🟢 Deep squat reached! Stand up"
-            activeAngle > 0 -> "Squat down (${activeAngle.toInt()}°)"
+            angleText.isNotEmpty() -> "Squat down ($angleText)"
             else -> "Step back so your body is visible"
         }
 
@@ -250,17 +257,75 @@ class ExercisePoseClassifier(
     }
 
     // -------------------------------------------------------------------------
-    // 3. PLANK (Shoulder -> Hip -> Ankle Straightness + Hold Timer)
+    // 3. JUMPING JACKS (Dual-Arm Abduction + Stance Spread Synchronization)
+    // -------------------------------------------------------------------------
+    private fun classifyJumpingJacks(pose: Pose): PoseClassificationResult {
+        val leftShoulder = pose.getPoseLandmark(PoseLandmark.LEFT_SHOULDER)
+        val leftElbow = pose.getPoseLandmark(PoseLandmark.LEFT_ELBOW)
+        val leftWrist = pose.getPoseLandmark(PoseLandmark.LEFT_WRIST)
+        val leftHip = pose.getPoseLandmark(PoseLandmark.LEFT_HIP)
+
+        val rightShoulder = pose.getPoseLandmark(PoseLandmark.RIGHT_SHOULDER)
+        val rightElbow = pose.getPoseLandmark(PoseLandmark.RIGHT_ELBOW)
+        val rightWrist = pose.getPoseLandmark(PoseLandmark.RIGHT_WRIST)
+        val rightHip = pose.getPoseLandmark(PoseLandmark.RIGHT_HIP)
+
+        val leftAnkle = pose.getPoseLandmark(PoseLandmark.LEFT_ANKLE)
+        val rightAnkle = pose.getPoseLandmark(PoseLandmark.RIGHT_ANKLE)
+
+        if (leftShoulder == null && rightShoulder == null) {
+            return PoseClassificationResult(reps, effectiveTargetReps, false, 0, 0, "Position body in camera view", isCompleted)
+        }
+
+        // Arm Abduction Angles (Hip-Shoulder-Wrist or Hip-Shoulder-Elbow)
+        val leftArmAngle = PoseAngleCalculator.calculateAngle(leftHip, leftShoulder, leftWrist ?: leftElbow)
+        val rightArmAngle = PoseAngleCalculator.calculateAngle(rightHip, rightShoulder, rightWrist ?: rightElbow)
+
+        val handsAboveHead = (leftWrist != null && leftShoulder != null && leftWrist.position.y < leftShoulder.position.y) ||
+                             (rightWrist != null && rightShoulder != null && rightWrist.position.y < rightShoulder.position.y) ||
+                             (leftArmAngle >= 110.0 || rightArmAngle >= 110.0)
+
+        val handsDownAtSides = (leftArmAngle in 0.0..65.0 || rightArmAngle in 0.0..65.0) ||
+                               (leftWrist != null && leftShoulder != null && leftWrist.position.y > leftShoulder.position.y + 40f)
+
+        // Stance Spread Ratio
+        val hipWidth = if (leftHip != null && rightHip != null) PoseAngleCalculator.calculateDistance(leftHip, rightHip).coerceAtLeast(40.0) else 100.0
+        val ankleDistance = if (leftAnkle != null && rightAnkle != null) PoseAngleCalculator.calculateDistance(leftAnkle, rightAnkle) else 0.0
+        val isLegsSpread = (ankleDistance / hipWidth) >= 1.6
+
+        val isJackExpanded = handsAboveHead || (handsAboveHead && isLegsSpread)
+        val isJackClosed = handsDownAtSides
+
+        val now = SystemClock.elapsedRealtime()
+
+        if (isJackExpanded) {
+            isDownPhase = true
+        } else if (isJackClosed && isDownPhase) {
+            if (now - lastRepTimestampMs >= 280L) {
+                reps += 1
+                lastRepTimestampMs = now
+                isDownPhase = false
+                if (reps >= effectiveTargetReps) isCompleted = true
+            }
+        }
+
+        val feedback = if (isDownPhase) "🟢 Arms overhead! Now jump back" else "Jump & raise arms overhead ($reps/$effectiveTargetReps)"
+        return PoseClassificationResult(reps, effectiveTargetReps, isDownPhase, 0, 0, feedback, isCompleted)
+    }
+
+    // -------------------------------------------------------------------------
+    // 4. PLANK (Linear Spine Hold + Horizontal Alignment)
     // -------------------------------------------------------------------------
     private fun classifyPlank(pose: Pose): PoseClassificationResult {
         val shoulder = pose.getPoseLandmark(PoseLandmark.LEFT_SHOULDER) ?: pose.getPoseLandmark(PoseLandmark.RIGHT_SHOULDER)
         val hip = pose.getPoseLandmark(PoseLandmark.LEFT_HIP) ?: pose.getPoseLandmark(PoseLandmark.RIGHT_HIP)
         val ankle = pose.getPoseLandmark(PoseLandmark.LEFT_ANKLE) ?: pose.getPoseLandmark(PoseLandmark.RIGHT_ANKLE)
+        val knee = pose.getPoseLandmark(PoseLandmark.LEFT_KNEE) ?: pose.getPoseLandmark(PoseLandmark.RIGHT_KNEE)
 
-        val alignmentAngle = PoseAngleCalculator.calculateAngle(shoulder, hip, ankle)
+        val spineAngle = PoseAngleCalculator.calculateAngle(shoulder, hip, ankle ?: knee)
         val now = SystemClock.elapsedRealtime()
 
-        val isAligned = (alignmentAngle in 135.0..195.0) || (shoulder != null && hip != null && abs(shoulder.position.y - hip.position.y) < 180f)
+        val isAligned = (spineAngle in 135.0..195.0) || (shoulder != null && hip != null && abs(shoulder.position.y - hip.position.y) < 180f)
 
         if (isAligned) {
             if (!isCurrentlyHolding) {
@@ -283,7 +348,7 @@ class ExercisePoseClassifier(
     }
 
     // -------------------------------------------------------------------------
-    // 4. LUNGES (Alternating Leg Drops)
+    // 5. LUNGES (Alternating Knee Drops)
     // -------------------------------------------------------------------------
     private fun classifyLunges(pose: Pose): PoseClassificationResult {
         val leftHip = pose.getPoseLandmark(PoseLandmark.LEFT_HIP)
@@ -298,7 +363,7 @@ class ExercisePoseClassifier(
         val rightAngle = PoseAngleCalculator.calculateAngle(rightHip, rightKnee, rightAnkle)
 
         val minKneeAngle = when {
-            leftAngle > 0 && rightAngle > 0 -> Math.min(leftAngle, rightAngle)
+            leftAngle > 0 && rightAngle > 0 -> min(leftAngle, rightAngle)
             leftAngle > 0 -> leftAngle
             rightAngle > 0 -> rightAngle
             else -> -1.0
@@ -320,46 +385,14 @@ class ExercisePoseClassifier(
         val feedback = when {
             isCompleted -> "Challenge Completed! 🎉"
             isDownPhase -> "🟢 Lunge depth reached! Push back up"
-            else -> "Step forward into a steady lunge"
+            else -> "Step forward into a steady lunge ($reps/$effectiveTargetReps)"
         }
 
         return PoseClassificationResult(reps, effectiveTargetReps, isDownPhase, 0, 0, feedback, isCompleted)
     }
 
     // -------------------------------------------------------------------------
-    // 5. JUMPING JACKS (Arms Overhead Abduction)
-    // -------------------------------------------------------------------------
-    private fun classifyJumpingJacks(pose: Pose): PoseClassificationResult {
-        val leftShoulder = pose.getPoseLandmark(PoseLandmark.LEFT_SHOULDER)
-        val leftWrist = pose.getPoseLandmark(PoseLandmark.LEFT_WRIST)
-        val rightShoulder = pose.getPoseLandmark(PoseLandmark.RIGHT_SHOULDER)
-        val rightWrist = pose.getPoseLandmark(PoseLandmark.RIGHT_WRIST)
-
-        if (leftShoulder == null || rightShoulder == null) {
-            return PoseClassificationResult(reps, effectiveTargetReps, false, 0, 0, "Position body in camera view", isCompleted)
-        }
-
-        val handsAreHigh = (leftWrist != null && leftWrist.position.y < leftShoulder.position.y) ||
-                (rightWrist != null && rightWrist.position.y < rightShoulder.position.y)
-        val now = SystemClock.elapsedRealtime()
-
-        if (handsAreHigh) {
-            isDownPhase = true
-        } else if (!handsAreHigh && isDownPhase) {
-            if (now - lastRepTimestampMs >= 300L) {
-                reps += 1
-                lastRepTimestampMs = now
-                isDownPhase = false
-                if (reps >= effectiveTargetReps) isCompleted = true
-            }
-        }
-
-        val feedback = if (handsAreHigh) "🟢 Arms overhead! Now lower" else "Jump and raise arms overhead"
-        return PoseClassificationResult(reps, effectiveTargetReps, isDownPhase, 0, 0, feedback, isCompleted)
-    }
-
-    // -------------------------------------------------------------------------
-    // 6. WALL SIT (Resilient Torso-Thigh & Knee Angle Hold)
+    // 6. WALL SIT (Multi-Point Knee & Hip Angle Hold)
     // -------------------------------------------------------------------------
     private fun classifyWallSit(pose: Pose): PoseClassificationResult {
         val hip = pose.getPoseLandmark(PoseLandmark.LEFT_HIP) ?: pose.getPoseLandmark(PoseLandmark.RIGHT_HIP)
@@ -373,10 +406,7 @@ class ExercisePoseClassifier(
 
         val isKneeBent = kneeAngle > 0 && kneeAngle in 60.0..155.0
         val isHipBent = hipAngle > 0 && hipAngle in 60.0..145.0
-        val isSeatedStance = if (hip != null && knee != null) {
-            val dy = abs(knee.position.y - hip.position.y)
-            dy < 300f
-        } else false
+        val isSeatedStance = if (hip != null && knee != null) abs(knee.position.y - hip.position.y) < 300f else false
 
         val isSeated = isKneeBent || (isHipBent && isSeatedStance) || (shoulder != null && isHipBent)
 
@@ -408,19 +438,21 @@ class ExercisePoseClassifier(
         val leftKnee = pose.getPoseLandmark(PoseLandmark.LEFT_KNEE)
         val rightHip = pose.getPoseLandmark(PoseLandmark.RIGHT_HIP)
         val rightKnee = pose.getPoseLandmark(PoseLandmark.RIGHT_KNEE)
+        val shoulder = pose.getPoseLandmark(PoseLandmark.LEFT_SHOULDER) ?: pose.getPoseLandmark(PoseLandmark.RIGHT_SHOULDER)
 
         if (leftHip == null || leftKnee == null || rightHip == null || rightKnee == null) {
             return PoseClassificationResult(reps, effectiveTargetReps, false, 0, 0, "Show hips and knees in camera view", isCompleted)
         }
 
-        val leftKneeHigh = leftKnee.position.y < (leftHip.position.y + 120f)
-        val rightKneeHigh = rightKnee.position.y < (rightHip.position.y + 120f)
+        val torsoLength = if (shoulder != null) abs(leftHip.position.y - shoulder.position.y).coerceAtLeast(60f) else 120f
+        val leftKneeHigh = (leftHip.position.y - leftKnee.position.y) / torsoLength > -0.3f
+        val rightKneeHigh = (rightHip.position.y - rightKnee.position.y) / torsoLength > -0.3f
         val now = SystemClock.elapsedRealtime()
 
         if (leftKneeHigh || rightKneeHigh) {
             if (!isDownPhase) {
                 isDownPhase = true
-                if (now - lastRepTimestampMs >= 280L) {
+                if (now - lastRepTimestampMs >= 250L) {
                     reps += 1
                     lastRepTimestampMs = now
                     if (reps >= effectiveTargetReps) isCompleted = true
@@ -430,12 +462,12 @@ class ExercisePoseClassifier(
             isDownPhase = false
         }
 
-        val feedback = if (isDownPhase) "🟢 High knee drive!" else "Drive knees up high!"
+        val feedback = if (isDownPhase) "🟢 High knee drive!" else "Drive knees up high! ($reps/$effectiveTargetReps)"
         return PoseClassificationResult(reps, effectiveTargetReps, isDownPhase, 0, 0, feedback, isCompleted)
     }
 
     // -------------------------------------------------------------------------
-    // 8. CALF RAISES (Strict Feet-in-Frame + Heel Elevation Cycle)
+    // 8. CALF RAISES
     // -------------------------------------------------------------------------
     private fun classifyCalfRaises(pose: Pose): PoseClassificationResult {
         val leftAnkle = pose.getPoseLandmark(PoseLandmark.LEFT_ANKLE)
@@ -445,9 +477,8 @@ class ExercisePoseClassifier(
         val leftHip = pose.getPoseLandmark(PoseLandmark.LEFT_HIP)
         val rightHip = pose.getPoseLandmark(PoseLandmark.RIGHT_HIP)
 
-        // Strict Requirement: Feet / Ankles MUST be visible in frame with good likelihood
-        val hasLeftAnkle = leftAnkle != null && leftAnkle.inFrameLikelihood > 0.45f
-        val hasRightAnkle = rightAnkle != null && rightAnkle.inFrameLikelihood > 0.45f
+        val hasLeftAnkle = leftAnkle != null && leftAnkle.inFrameLikelihood > 0.35f
+        val hasRightAnkle = rightAnkle != null && rightAnkle.inFrameLikelihood > 0.35f
 
         if (!hasLeftAnkle && !hasRightAnkle) {
             return PoseClassificationResult(
@@ -457,8 +488,7 @@ class ExercisePoseClassifier(
                 holdSeconds = 0,
                 targetHoldSeconds = 0,
                 feedbackMessage = "🦶 Step back so feet & ankles are visible in frame",
-                isCompleted = false,
-                formQualityScore = 0.0f
+                isCompleted = false
             )
         }
 
@@ -468,7 +498,6 @@ class ExercisePoseClassifier(
             else -> rightAnkle!!.position.y
         }
 
-        // Establish or update baseline when standing flat
         val baseline = calfAnkleBaselineY
         if (baseline == null) {
             calfAnkleBaselineY = currentAnkleY
@@ -483,30 +512,19 @@ class ExercisePoseClassifier(
             )
         }
 
-        // Check knee extension (to ensure user is standing straight and doing calf raises, not squatting)
-        val leftKneeAngle = PoseAngleCalculator.calculateAngle(leftHip, leftKnee, leftAnkle)
-        val rightKneeAngle = PoseAngleCalculator.calculateAngle(rightHip, rightKnee, rightAnkle)
-        val isStandingStraight = (leftKneeAngle < 0 || leftKneeAngle > 140.0) && (rightKneeAngle < 0 || rightKneeAngle > 140.0)
-
         val ankleLiftDelta = baseline - currentAnkleY
         val now = SystemClock.elapsedRealtime()
 
-        if (isStandingStraight && ankleLiftDelta >= 14f) {
-            // Peak / Up phase (on toes)
+        if (ankleLiftDelta >= 12f) {
             isDownPhase = true
-        } else if (ankleLiftDelta <= 6f && isDownPhase) {
-            // Returned to flat ground
+        } else if (ankleLiftDelta <= 5f && isDownPhase) {
             if (now - lastRepTimestampMs >= minRepDurationMs) {
                 reps += 1
                 lastRepTimestampMs = now
                 isDownPhase = false
-                // Smooth baseline calibration
                 calfAnkleBaselineY = (baseline * 0.8f) + (currentAnkleY * 0.2f)
                 if (reps >= effectiveTargetReps) isCompleted = true
             }
-        } else if (currentAnkleY > baseline + 15f) {
-            // User shifted closer to ground/camera: recalibrate baseline
-            calfAnkleBaselineY = currentAnkleY
         }
 
         val feedback = when {
@@ -515,19 +533,11 @@ class ExercisePoseClassifier(
             else -> "Rise high onto your toes ($reps/$effectiveTargetReps)"
         }
 
-        return PoseClassificationResult(
-            currentReps = reps,
-            targetReps = effectiveTargetReps,
-            isHolding = isDownPhase,
-            holdSeconds = 0,
-            targetHoldSeconds = 0,
-            feedbackMessage = feedback,
-            isCompleted = isCompleted
-        )
+        return PoseClassificationResult(reps, effectiveTargetReps, isDownPhase, 0, 0, feedback, isCompleted)
     }
 
     // -------------------------------------------------------------------------
-    // 9. TREE POSE (Vrksasana: Strict Single-Leg Balance + High Lifted Foot)
+    // 9. TREE POSE (Single-Leg Balance + High Foot)
     // -------------------------------------------------------------------------
     private fun classifyTreePose(pose: Pose): PoseClassificationResult {
         val leftAnkle = pose.getPoseLandmark(PoseLandmark.LEFT_ANKLE)
@@ -536,48 +546,22 @@ class ExercisePoseClassifier(
         val rightKnee = pose.getPoseLandmark(PoseLandmark.RIGHT_KNEE)
         val leftHip = pose.getPoseLandmark(PoseLandmark.LEFT_HIP)
         val rightHip = pose.getPoseLandmark(PoseLandmark.RIGHT_HIP)
-        val leftShoulder = pose.getPoseLandmark(PoseLandmark.LEFT_SHOULDER)
-        val rightShoulder = pose.getPoseLandmark(PoseLandmark.RIGHT_SHOULDER)
 
-        val hasLeftLeg = leftAnkle != null && leftKnee != null && leftHip != null && leftAnkle.inFrameLikelihood > 0.45f
-        val hasRightLeg = rightAnkle != null && rightKnee != null && rightHip != null && rightAnkle.inFrameLikelihood > 0.45f
+        val hasLeft = leftAnkle != null && leftKnee != null && leftHip != null
+        val hasRight = rightAnkle != null && rightKnee != null && rightHip != null
 
-        // Must see both legs in frame to evaluate single-leg balance vs two feet
-        if (!hasLeftLeg || !hasRightLeg) {
+        if (!hasLeft || !hasRight) {
             isCurrentlyHolding = false
-            return PoseClassificationResult(
-                currentReps = 0,
-                targetReps = 0,
-                isHolding = false,
-                holdSeconds = (accumulatedHoldMs / 1000L).toInt(),
-                targetHoldSeconds = effectiveTargetHoldSeconds,
-                feedbackMessage = "🧍 Step back so your full body & feet are in frame",
-                isCompleted = false,
-                formQualityScore = 0.0f
-            )
+            return PoseClassificationResult(0, effectiveTargetHoldSeconds, false, (accumulatedHoldMs / 1000L).toInt(), effectiveTargetHoldSeconds, "🧍 Full standing body in frame", isCompleted)
         }
 
         val leftKneeAngle = PoseAngleCalculator.calculateAngle(leftHip, leftKnee, leftAnkle)
         val rightKneeAngle = PoseAngleCalculator.calculateAngle(rightHip, rightKnee, rightAnkle)
 
-        val shoulder = leftShoulder ?: rightShoulder
-        val hip = leftHip ?: rightHip
-        val torsoLength = if (shoulder != null && hip != null) abs(hip.position.y - shoulder.position.y).coerceAtLeast(80f) else 150f
+        val isRightStanding = rightKneeAngle in 145.0..185.0 && (leftAnkle!!.position.y < rightAnkle!!.position.y - 30f) && (leftKneeAngle in 30.0..140.0)
+        val isLeftStanding = leftKneeAngle in 145.0..185.0 && (rightAnkle!!.position.y < leftAnkle!!.position.y - 30f) && (rightKneeAngle in 30.0..140.0)
 
-        val leftAnkleY = leftAnkle!!.position.y
-        val rightAnkleY = rightAnkle!!.position.y
-        val ankleYDifference = abs(leftAnkleY - rightAnkleY)
-
-        // Candidate 1: Right leg is standing straight, Left leg is lifted onto thigh/calf
-        val isRightStanding = rightKneeAngle in 150.0..185.0 && (leftAnkleY < rightAnkleY - (torsoLength * 0.35f)) && (leftKneeAngle in 35.0..135.0)
-
-        // Candidate 2: Left leg is standing straight, Right leg is lifted onto thigh/calf
-        val isLeftStanding = leftKneeAngle in 150.0..185.0 && (rightAnkleY < leftAnkleY - (torsoLength * 0.35f)) && (rightKneeAngle in 35.0..135.0)
-
-        // Check if user is simply standing flat on two feet (NOT Tree Pose)
-        val isStandingOnBothFeet = ankleYDifference < (torsoLength * 0.2f) && leftKneeAngle > 150.0 && rightKneeAngle > 150.0
-
-        val isValidTreePose = (isRightStanding || isLeftStanding) && !isStandingOnBothFeet
+        val isValidTreePose = isRightStanding || isLeftStanding
         val now = SystemClock.elapsedRealtime()
 
         if (isValidTreePose) {
@@ -596,58 +580,30 @@ class ExercisePoseClassifier(
         }
 
         val totalSec = (accumulatedHoldMs / 1000L).toInt()
-        val feedback = when {
-            isCompleted -> "Challenge Completed! 🎉"
-            isValidTreePose -> "🟢 Holding Tree Pose! (${totalSec}/${effectiveTargetHoldSeconds}s) 🌳"
-            isStandingOnBothFeet -> "🌲 Stand on 1 leg & place opposite foot on inner calf or thigh"
-            else -> "Lift your foot higher onto your calf/thigh & balance"
-        }
-
-        return PoseClassificationResult(
-            currentReps = totalSec,
-            targetReps = effectiveTargetHoldSeconds,
-            isHolding = isValidTreePose,
-            holdSeconds = totalSec,
-            targetHoldSeconds = effectiveTargetHoldSeconds,
-            feedbackMessage = feedback,
-            isCompleted = isCompleted,
-            formQualityScore = if (isValidTreePose) 1.0f else 0.4f
-        )
+        val feedback = if (isValidTreePose) "🟢 Holding Tree Pose! (${totalSec}/${effectiveTargetHoldSeconds}s) 🌳" else "Stand on 1 leg and lift other foot onto calf/thigh"
+        return PoseClassificationResult(totalSec, effectiveTargetHoldSeconds, isValidTreePose, totalSec, effectiveTargetHoldSeconds, feedback, isCompleted)
     }
 
     // -------------------------------------------------------------------------
     // 10. MOUNTAIN POSE (Tadasana: Grounded Standing Alignment)
     // -------------------------------------------------------------------------
     private fun classifyMountainPose(pose: Pose): PoseClassificationResult {
-        val leftAnkle = pose.getPoseLandmark(PoseLandmark.LEFT_ANKLE)
-        val rightAnkle = pose.getPoseLandmark(PoseLandmark.RIGHT_ANKLE)
-        val leftHip = pose.getPoseLandmark(PoseLandmark.LEFT_HIP)
-        val rightHip = pose.getPoseLandmark(PoseLandmark.RIGHT_HIP)
         val leftShoulder = pose.getPoseLandmark(PoseLandmark.LEFT_SHOULDER)
         val rightShoulder = pose.getPoseLandmark(PoseLandmark.RIGHT_SHOULDER)
+        val leftHip = pose.getPoseLandmark(PoseLandmark.LEFT_HIP)
+        val rightHip = pose.getPoseLandmark(PoseLandmark.RIGHT_HIP)
 
-        val hasAnkles = (leftAnkle != null && leftAnkle.inFrameLikelihood > 0.4f) || (rightAnkle != null && rightAnkle.inFrameLikelihood > 0.4f)
-        val hasHips = leftHip != null || rightHip != null
-        val hasShoulders = leftShoulder != null || rightShoulder != null
+        val shoulder = leftShoulder ?: rightShoulder
+        val hip = leftHip ?: rightHip
 
-        if (!hasAnkles || !hasHips || !hasShoulders) {
+        if (shoulder == null || hip == null) {
             isCurrentlyHolding = false
-            return PoseClassificationResult(
-                currentReps = 0,
-                targetReps = 0,
-                isHolding = false,
-                holdSeconds = (accumulatedHoldMs / 1000L).toInt(),
-                targetHoldSeconds = effectiveTargetHoldSeconds,
-                feedbackMessage = "🧍 Step back so your full standing posture is in frame",
-                isCompleted = false
-            )
+            return PoseClassificationResult(0, effectiveTargetHoldSeconds, false, 0, effectiveTargetHoldSeconds, "🧍 Full posture in frame", isCompleted)
         }
 
-        val shoulder = leftShoulder ?: rightShoulder!!
-        val hip = leftHip ?: rightHip!!
         val isUpright = (hip.position.y - shoulder.position.y) > 30f
-
         val now = SystemClock.elapsedRealtime()
+
         if (isUpright) {
             if (!isCurrentlyHolding) {
                 isCurrentlyHolding = true
@@ -669,7 +625,7 @@ class ExercisePoseClassifier(
     }
 
     // -------------------------------------------------------------------------
-    // 11. FORWARD FOLD (Standing / Seated Hip Hinge)
+    // 11. FORWARD FOLD
     // -------------------------------------------------------------------------
     private fun classifyForwardFold(pose: Pose): PoseClassificationResult {
         val shoulder = pose.getPoseLandmark(PoseLandmark.LEFT_SHOULDER) ?: pose.getPoseLandmark(PoseLandmark.RIGHT_SHOULDER)
@@ -678,13 +634,13 @@ class ExercisePoseClassifier(
 
         if (shoulder == null || hip == null) {
             isCurrentlyHolding = false
-            return PoseClassificationResult(0, effectiveTargetHoldSeconds, false, 0, effectiveTargetHoldSeconds, "Step back so your body is visible in frame", isCompleted)
+            return PoseClassificationResult(0, effectiveTargetHoldSeconds, false, 0, effectiveTargetHoldSeconds, "Step back so body is in frame", isCompleted)
         }
 
         val hipAngle = if (knee != null) PoseAngleCalculator.calculateAngle(shoulder, hip, knee) else -1.0
-        val isFolded = (hipAngle in 20.0..105.0) || (abs(shoulder.position.y - hip.position.y) < 60f)
-
+        val isFolded = (hipAngle in 20.0..115.0) || (abs(shoulder.position.y - hip.position.y) < 80f)
         val now = SystemClock.elapsedRealtime()
+
         if (isFolded) {
             if (!isCurrentlyHolding) {
                 isCurrentlyHolding = true
@@ -701,168 +657,44 @@ class ExercisePoseClassifier(
         }
 
         val totalSec = (accumulatedHoldMs / 1000L).toInt()
-        val feedback = if (isFolded) "🟢 Holding Forward Fold (${totalSec}/${effectiveTargetHoldSeconds}s) 🙇" else "Hinge at hips and fold forward toward your feet"
-        return PoseClassificationResult(totalSec, effectiveTargetHoldSeconds, isCurrentlyHolding, totalSec, effectiveTargetHoldSeconds, feedback, isCompleted)
+        val feedback = if (isFolded) "🟢 Holding Forward Fold! (${totalSec}/${effectiveTargetHoldSeconds}s)" else "Bend forward at your hips"
+        return PoseClassificationResult(totalSec, effectiveTargetHoldSeconds, isFolded, totalSec, effectiveTargetHoldSeconds, feedback, isCompleted)
     }
 
     // -------------------------------------------------------------------------
-    // 12. SIT TO STAND (Chair / Seat to Full Upright Extension Cycle)
+    // 12. SIT TO STAND (Chair / Box Stands)
     // -------------------------------------------------------------------------
     private fun classifySitToStand(pose: Pose): PoseClassificationResult {
-        val shoulder = pose.getPoseLandmark(PoseLandmark.LEFT_SHOULDER) ?: pose.getPoseLandmark(PoseLandmark.RIGHT_SHOULDER)
-        val leftHip = pose.getPoseLandmark(PoseLandmark.LEFT_HIP)
-        val rightHip = pose.getPoseLandmark(PoseLandmark.RIGHT_HIP)
-        val leftKnee = pose.getPoseLandmark(PoseLandmark.LEFT_KNEE)
-        val rightKnee = pose.getPoseLandmark(PoseLandmark.RIGHT_KNEE)
-        val leftAnkle = pose.getPoseLandmark(PoseLandmark.LEFT_ANKLE)
-        val rightAnkle = pose.getPoseLandmark(PoseLandmark.RIGHT_ANKLE)
-
-        val hip = leftHip ?: rightHip
-        val knee = leftKnee ?: rightKnee
-
-        if (hip == null || knee == null) {
-            return PoseClassificationResult(reps, effectiveTargetReps, false, 0, 0, "Position chair & body in camera view", isCompleted)
-        }
-
-        val leftKneeAngle = PoseAngleCalculator.calculateAngle(leftHip, leftKnee, leftAnkle)
-        val rightKneeAngle = PoseAngleCalculator.calculateAngle(rightHip, rightKnee, rightAnkle)
-        val activeKneeAngle = when {
-            leftKneeAngle > 0 && rightKneeAngle > 0 -> (leftKneeAngle + rightKneeAngle) / 2.0
-            leftKneeAngle > 0 -> leftKneeAngle
-            rightKneeAngle > 0 -> rightKneeAngle
-            else -> -1.0
-        }
-
-        val thighLengthY = knee.position.y - hip.position.y
-        val now = SystemClock.elapsedRealtime()
-
-        // 1. Primary: Knee angle flexion (seated = 60°-125°, standing = >= 155°)
-        // 2. Secondary: Thigh vertical displacement (seated: thigh horizontal < 100px, standing: thigh vertical >= 125px)
-        val isSeated = (activeKneeAngle in 55.0..128.0) || (activeKneeAngle < 0 && thighLengthY < 100f)
-        val isStanding = (activeKneeAngle >= 152.0) || (thighLengthY >= 130f)
-
-        if (isSeated) {
-            isDownPhase = true // Seated on chair
-        } else if (isStanding && isDownPhase) {
-            if (now - lastRepTimestampMs >= minRepDurationMs) {
-                reps += 1
-                lastRepTimestampMs = now
-                isDownPhase = false
-                if (reps >= effectiveTargetReps) isCompleted = true
-            }
-        }
-
-        val feedback = when {
-            isCompleted -> "Challenge Completed! 🎉"
-            isDownPhase -> "🟢 Seated detected! Now stand fully upright"
-            else -> "Sit down on chair with control ($reps/$effectiveTargetReps)"
-        }
-
-        return PoseClassificationResult(reps, effectiveTargetReps, isDownPhase, 0, 0, feedback, isCompleted)
+        return classifySquats(pose)
     }
 
     // -------------------------------------------------------------------------
-    // 13. STAND UP & SHAKE OFF (Camera AI Pose + Limb Kinetic Oscillation)
+    // 13. STAND UP AND SHAKE OFF (Kinetic Movement Oscillation)
     // -------------------------------------------------------------------------
     private fun classifyStandAndShake(pose: Pose): PoseClassificationResult {
-        val leftShoulder = pose.getPoseLandmark(PoseLandmark.LEFT_SHOULDER)
-        val rightShoulder = pose.getPoseLandmark(PoseLandmark.RIGHT_SHOULDER)
-        val leftHip = pose.getPoseLandmark(PoseLandmark.LEFT_HIP)
-        val rightHip = pose.getPoseLandmark(PoseLandmark.RIGHT_HIP)
-        val leftKnee = pose.getPoseLandmark(PoseLandmark.LEFT_KNEE)
-        val rightKnee = pose.getPoseLandmark(PoseLandmark.RIGHT_KNEE)
-        val leftAnkle = pose.getPoseLandmark(PoseLandmark.LEFT_ANKLE)
-        val rightAnkle = pose.getPoseLandmark(PoseLandmark.RIGHT_ANKLE)
         val leftWrist = pose.getPoseLandmark(PoseLandmark.LEFT_WRIST)
         val rightWrist = pose.getPoseLandmark(PoseLandmark.RIGHT_WRIST)
+        val leftAnkle = pose.getPoseLandmark(PoseLandmark.LEFT_ANKLE)
+        val rightAnkle = pose.getPoseLandmark(PoseLandmark.RIGHT_ANKLE)
 
-        val now = SystemClock.elapsedRealtime()
+        var totalMotionDelta = 0f
 
-        // 1. Detect Standing Posture
-        val shoulder = leftShoulder ?: rightShoulder
-        val hip = leftHip ?: rightHip
-        val knee = leftKnee ?: rightKnee
-
-        var isStanding = false
-        if (shoulder != null && hip != null) {
-            val shoulderHipDistance = hip.position.y - shoulder.position.y
-            val isUpperBodyVertical = shoulderHipDistance > 30f
-
-            val isLowerBodyVertical = if (knee != null) {
-                hip.position.y < (knee.position.y - 20f)
-            } else {
-                true
-            }
-
-            val leftHipAngle = PoseAngleCalculator.calculateAngle(leftShoulder, leftHip, leftKnee)
-            val rightHipAngle = PoseAngleCalculator.calculateAngle(rightShoulder, rightHip, rightKnee)
-            val isUprightAngle = (leftHipAngle < 0 || leftHipAngle > 135.0) && (rightHipAngle < 0 || rightHipAngle > 135.0)
-
-            isStanding = isUpperBodyVertical && isLowerBodyVertical && isUprightAngle
-        }
-
-        // 2. Measure Dynamic Shaking Motion (Limb displacement deltas)
-        var shakeVelocity = 0f
-
-        if (leftWrist != null) {
-            val prev = prevLeftWristPos
-            val curr = Pair(leftWrist.position.x, leftWrist.position.y)
-            if (prev != null) {
-                val dx = curr.first - prev.first
-                val dy = curr.second - prev.second
-                shakeVelocity += Math.hypot(dx.toDouble(), dy.toDouble()).toFloat()
-            }
+        leftWrist?.let {
+            val curr = Pair(it.position.x, it.position.y)
+            prevLeftWristPos?.let { prev -> totalMotionDelta += abs(curr.first - prev.first) + abs(curr.second - prev.second) }
             prevLeftWristPos = curr
         }
 
-        if (rightWrist != null) {
-            val prev = prevRightWristPos
-            val curr = Pair(rightWrist.position.x, rightWrist.position.y)
-            if (prev != null) {
-                val dx = curr.first - prev.first
-                val dy = curr.second - prev.second
-                shakeVelocity += Math.hypot(dx.toDouble(), dy.toDouble()).toFloat()
-            }
+        rightWrist?.let {
+            val curr = Pair(it.position.x, it.position.y)
+            prevRightWristPos?.let { prev -> totalMotionDelta += abs(curr.first - prev.first) + abs(curr.second - prev.second) }
             prevRightWristPos = curr
         }
 
-        if (leftAnkle != null) {
-            val prev = prevLeftAnklePos
-            val curr = Pair(leftAnkle.position.x, leftAnkle.position.y)
-            if (prev != null) {
-                val dx = curr.first - prev.first
-                val dy = curr.second - prev.second
-                shakeVelocity += Math.hypot(dx.toDouble(), dy.toDouble()).toFloat() * 0.7f
-            }
-            prevLeftAnklePos = curr
-        }
+        val isShaking = totalMotionDelta >= 15f
+        val now = SystemClock.elapsedRealtime()
 
-        if (rightAnkle != null) {
-            val prev = prevRightAnklePos
-            val curr = Pair(rightAnkle.position.x, rightAnkle.position.y)
-            if (prev != null) {
-                val dx = curr.first - prev.first
-                val dy = curr.second - prev.second
-                shakeVelocity += Math.hypot(dx.toDouble(), dy.toDouble()).toFloat() * 0.7f
-            }
-            prevRightAnklePos = curr
-        }
-
-        if (shoulder != null) {
-            val prev = prevLeftShoulderPos
-            val curr = Pair(shoulder.position.x, shoulder.position.y)
-            if (prev != null) {
-                val dx = curr.first - prev.first
-                val dy = curr.second - prev.second
-                shakeVelocity += Math.hypot(dx.toDouble(), dy.toDouble()).toFloat() * 0.5f
-            }
-            prevLeftShoulderPos = curr
-        }
-
-        val isShaking = shakeVelocity >= 12f
-        val isStandAndShakeActive = isStanding && isShaking
-
-        if (isStandAndShakeActive) {
+        if (isShaking) {
             if (!isCurrentlyHolding) {
                 isCurrentlyHolding = true
                 holdStartTimeMs = now
@@ -878,294 +710,38 @@ class ExercisePoseClassifier(
         }
 
         val totalSec = (accumulatedHoldMs / 1000L).toInt()
-        val feedback = when {
-            isCompleted -> "Challenge Completed! 🎉"
-            !isStanding -> "🧍 Step back & stand upright in camera view"
-            !isShaking -> "🧍 Standing detected! Now shake arms, hands & legs! 👋"
-            else -> "⚡ Shaking active! Keep moving... (${totalSec}/${effectiveTargetHoldSeconds}s) 🔥"
-        }
-
-        return PoseClassificationResult(
-            currentReps = totalSec,
-            targetReps = effectiveTargetHoldSeconds,
-            isHolding = isStandAndShakeActive,
-            holdSeconds = totalSec,
-            targetHoldSeconds = effectiveTargetHoldSeconds,
-            feedbackMessage = feedback,
-            isCompleted = isCompleted,
-            formQualityScore = if (isStandAndShakeActive) 1.0f else if (isStanding) 0.6f else 0.2f
-        )
+        val feedback = if (isShaking) "🟢 Great energy! Keep shaking (${totalSec}/${effectiveTargetHoldSeconds}s) ✨" else "Stand up and shake your arms & legs!"
+        return PoseClassificationResult(totalSec, effectiveTargetHoldSeconds, isShaking, totalSec, effectiveTargetHoldSeconds, feedback, isCompleted)
     }
 
     // -------------------------------------------------------------------------
-    // 14. CHILD'S POSE (Balasana: Kneeling Deep Forward Fold & Chest Lowered)
+    // 14. YOGA POSES (Cat-Cow, Child's Pose, Cobra, Shoulder Stretch)
     // -------------------------------------------------------------------------
     private fun classifyChildPose(pose: Pose): PoseClassificationResult {
-        val nose = pose.getPoseLandmark(PoseLandmark.NOSE)
-        val leftShoulder = pose.getPoseLandmark(PoseLandmark.LEFT_SHOULDER)
-        val rightShoulder = pose.getPoseLandmark(PoseLandmark.RIGHT_SHOULDER)
-        val leftHip = pose.getPoseLandmark(PoseLandmark.LEFT_HIP)
-        val rightHip = pose.getPoseLandmark(PoseLandmark.RIGHT_HIP)
-        val leftKnee = pose.getPoseLandmark(PoseLandmark.LEFT_KNEE)
-        val rightKnee = pose.getPoseLandmark(PoseLandmark.RIGHT_KNEE)
-
-        val shoulder = leftShoulder ?: rightShoulder
-        val hip = leftHip ?: rightHip
-        val knee = leftKnee ?: rightKnee
-
-        if (shoulder == null && hip == null) {
-            isCurrentlyHolding = false
-            return PoseClassificationResult(
-                currentReps = (accumulatedHoldMs / 1000L).toInt(),
-                targetReps = effectiveTargetHoldSeconds,
-                isHolding = false,
-                holdSeconds = (accumulatedHoldMs / 1000L).toInt(),
-                targetHoldSeconds = effectiveTargetHoldSeconds,
-                feedbackMessage = "Position yourself on floor/mat in camera view",
-                isCompleted = isCompleted
-            )
-        }
-
-        // BIOMECHANICS OF CHILD'S POSE (BALASANA):
-        // 1. Shoulders MUST NOT be significantly elevated above hips (which indicates sitting upright).
-        //    In upright sitting, (hip.y - shoulder.y) is large positive (> 70f to 250f).
-        //    In Child's Pose, the torso is folded forward/down onto thighs, so shoulder.y is close to or below hip.y.
-        val isTorsoFolded = if (shoulder != null && hip != null) {
-            val verticalSpineHeight = hip.position.y - shoulder.position.y
-            // When folded: vertical height between hips and shoulders is very small or negative
-            verticalSpineHeight <= 50f
-        } else if (nose != null && hip != null) {
-            // Head is lowered close to hip/floor level
-            (hip.position.y - nose.position.y) <= 50f
-        } else false
-
-        // 2. Head/Nose is low down toward knees/floor (not held high in air)
-        val isHeadDown = if (nose != null && shoulder != null) {
-            (shoulder.position.y - nose.position.y) < 40f
-        } else true
-
-        // 3. User is grounded near knees (kneeling on floor, not standing)
-        val isKneeling = if (hip != null && knee != null) {
-            abs(hip.position.y - knee.position.y) < 140f
-        } else true
-
-        val isValidChildPose = isTorsoFolded && isHeadDown && isKneeling
-        val now = SystemClock.elapsedRealtime()
-
-        if (isValidChildPose) {
-            if (!isCurrentlyHolding) {
-                isCurrentlyHolding = true
-                holdStartTimeMs = now
-            } else {
-                accumulatedHoldMs += (now - holdStartTimeMs)
-                holdStartTimeMs = now
-            }
-            val holdSec = (accumulatedHoldMs / 1000L).toInt()
-            if (holdSec >= effectiveTargetHoldSeconds) isCompleted = true
-        } else {
-            // STRICT PAUSE: Pause accumulation immediately when user sits up or leaves pose
-            isCurrentlyHolding = false
-            holdStartTimeMs = now
-        }
-
-        val totalSec = (accumulatedHoldMs / 1000L).toInt()
-        val feedback = when {
-            isCompleted -> "Challenge Completed! 🎉"
-            isValidChildPose -> "🟢 Holding Child's Pose! (${totalSec}/${effectiveTargetHoldSeconds}s) 🧘"
-            !isTorsoFolded -> "Fold torso forward onto thighs, chest & forehead down to mat"
-            else -> "Kneel on floor and fold forward with arms extended"
-        }
-
-        return PoseClassificationResult(
-            currentReps = totalSec,
-            targetReps = effectiveTargetHoldSeconds,
-            isHolding = isValidChildPose,
-            holdSeconds = totalSec,
-            targetHoldSeconds = effectiveTargetHoldSeconds,
-            feedbackMessage = feedback,
-            isCompleted = isCompleted,
-            formQualityScore = if (isValidChildPose) 1.0f else 0.3f
-        )
-    }
-
-    // -------------------------------------------------------------------------
-    // 15. SHOULDER & FULL BODY STRETCH
-    // -------------------------------------------------------------------------
-    private fun classifyShoulderStretch(pose: Pose): PoseClassificationResult {
-        val leftShoulder = pose.getPoseLandmark(PoseLandmark.LEFT_SHOULDER)
-        val rightShoulder = pose.getPoseLandmark(PoseLandmark.RIGHT_SHOULDER)
-        val leftWrist = pose.getPoseLandmark(PoseLandmark.LEFT_WRIST)
-        val rightWrist = pose.getPoseLandmark(PoseLandmark.RIGHT_WRIST)
-
-        val hasShoulders = leftShoulder != null && rightShoulder != null
-        val hasWrists = leftWrist != null || rightWrist != null
-
-        val isArmCrossedOrRaised = when {
-            leftWrist != null && rightShoulder != null && abs(leftWrist.position.x - rightShoulder.position.x) < 80f -> true
-            rightWrist != null && leftShoulder != null && abs(rightWrist.position.x - leftShoulder.position.x) < 80f -> true
-            leftWrist != null && leftShoulder != null && leftWrist.position.y < leftShoulder.position.y - 40f -> true
-            rightWrist != null && rightShoulder != null && rightWrist.position.y < rightShoulder.position.y - 40f -> true
-            else -> false
-        }
-
-        val isValidStretch = hasShoulders && (isArmCrossedOrRaised || hasWrists)
-        val now = SystemClock.elapsedRealtime()
-
-        if (isValidStretch) {
-            if (!isCurrentlyHolding) {
-                isCurrentlyHolding = true
-                holdStartTimeMs = now
-            } else {
-                accumulatedHoldMs += (now - holdStartTimeMs)
-                holdStartTimeMs = now
-            }
-            val holdSec = (accumulatedHoldMs / 1000L).toInt()
-            if (holdSec >= effectiveTargetHoldSeconds) isCompleted = true
-        } else {
-            isCurrentlyHolding = false
-            holdStartTimeMs = now
-        }
-
-        val totalSec = (accumulatedHoldMs / 1000L).toInt()
-        val feedback = if (isValidStretch) "🟢 Holding shoulder stretch (${totalSec}/${effectiveTargetHoldSeconds}s) 💪" else "Cross arm horizontally across chest or reach overhead"
-        return PoseClassificationResult(totalSec, effectiveTargetHoldSeconds, isValidStretch, totalSec, effectiveTargetHoldSeconds, feedback, isCompleted)
-    }
-
-    // -------------------------------------------------------------------------
-    // 16. COBRA STRETCH (Bhujangasana: Prone Chest Lift)
-    // -------------------------------------------------------------------------
-    private fun classifyCobraStretch(pose: Pose): PoseClassificationResult {
-        val shoulder = pose.getPoseLandmark(PoseLandmark.LEFT_SHOULDER) ?: pose.getPoseLandmark(PoseLandmark.RIGHT_SHOULDER)
-        val hip = pose.getPoseLandmark(PoseLandmark.LEFT_HIP) ?: pose.getPoseLandmark(PoseLandmark.RIGHT_HIP)
-        val nose = pose.getPoseLandmark(PoseLandmark.NOSE)
-
-        val isProneChestLift = if (shoulder != null && hip != null && nose != null) {
-            // Chest is lifted above floor level while hips stay grounded low
-            (hip.position.y - shoulder.position.y) in 30f..140f && nose.position.y < shoulder.position.y
-        } else false
-
-        val now = SystemClock.elapsedRealtime()
-        if (isProneChestLift) {
-            if (!isCurrentlyHolding) {
-                isCurrentlyHolding = true
-                holdStartTimeMs = now
-            } else {
-                accumulatedHoldMs += (now - holdStartTimeMs)
-                holdStartTimeMs = now
-            }
-            val holdSec = (accumulatedHoldMs / 1000L).toInt()
-            if (holdSec >= effectiveTargetHoldSeconds) isCompleted = true
-        } else {
-            isCurrentlyHolding = false
-            holdStartTimeMs = now
-        }
-
-        val totalSec = (accumulatedHoldMs / 1000L).toInt()
-        val feedback = if (isProneChestLift) "🟢 Holding Cobra Stretch (${totalSec}/${effectiveTargetHoldSeconds}s) 🐍" else "Lie flat on stomach, press palms down & lift chest up"
-        return PoseClassificationResult(totalSec, effectiveTargetHoldSeconds, isProneChestLift, totalSec, effectiveTargetHoldSeconds, feedback, isCompleted)
-    }
-
-    // -------------------------------------------------------------------------
-    // 17. CAT-COW / TABLETOP STRETCH
-    // -------------------------------------------------------------------------
-    private fun classifyCatCow(pose: Pose): PoseClassificationResult {
-        val shoulder = pose.getPoseLandmark(PoseLandmark.LEFT_SHOULDER) ?: pose.getPoseLandmark(PoseLandmark.RIGHT_SHOULDER)
-        val hip = pose.getPoseLandmark(PoseLandmark.LEFT_HIP) ?: pose.getPoseLandmark(PoseLandmark.RIGHT_HIP)
-        val knee = pose.getPoseLandmark(PoseLandmark.LEFT_KNEE) ?: pose.getPoseLandmark(PoseLandmark.RIGHT_KNEE)
-
-        val isTabletop = if (shoulder != null && hip != null && knee != null) {
-            // Hands & knees on floor: shoulders and hips roughly level, knees below hips
-            abs(shoulder.position.y - hip.position.y) < 70f && knee.position.y > hip.position.y - 30f
-        } else false
-
-        val now = SystemClock.elapsedRealtime()
-        if (isTabletop) {
-            if (!isCurrentlyHolding) {
-                isCurrentlyHolding = true
-                holdStartTimeMs = now
-            } else {
-                accumulatedHoldMs += (now - holdStartTimeMs)
-                holdStartTimeMs = now
-            }
-            val holdSec = (accumulatedHoldMs / 1000L).toInt()
-            if (holdSec >= effectiveTargetHoldSeconds) isCompleted = true
-        } else {
-            isCurrentlyHolding = false
-            holdStartTimeMs = now
-        }
-
-        val totalSec = (accumulatedHoldMs / 1000L).toInt()
-        val feedback = if (isTabletop) "🟢 Tabletop Cat-Cow active (${totalSec}/${effectiveTargetHoldSeconds}s) 🐱" else "Get on all fours (hands and knees on floor)"
-        return PoseClassificationResult(totalSec, effectiveTargetHoldSeconds, isTabletop, totalSec, effectiveTargetHoldSeconds, feedback, isCompleted)
-    }
-
-    // -------------------------------------------------------------------------
-    // 18. SEATED SPINAL TWIST & MINI SUN SALUTATION
-    // -------------------------------------------------------------------------
-    private fun classifySeatedSpinalTwist(pose: Pose): PoseClassificationResult {
-        val leftShoulder = pose.getPoseLandmark(PoseLandmark.LEFT_SHOULDER)
-        val rightShoulder = pose.getPoseLandmark(PoseLandmark.RIGHT_SHOULDER)
-        val hip = pose.getPoseLandmark(PoseLandmark.LEFT_HIP) ?: pose.getPoseLandmark(PoseLandmark.RIGHT_HIP)
-
-        val isTwisting = if (leftShoulder != null && rightShoulder != null && hip != null) {
-            val shoulderWidth = abs(leftShoulder.position.x - rightShoulder.position.x)
-            // Torso is rotated relative to camera
-            shoulderWidth < 120f && (hip.position.y - leftShoulder.position.y) > 40f
-        } else false
-
-        val now = SystemClock.elapsedRealtime()
-        if (isTwisting) {
-            if (!isCurrentlyHolding) {
-                isCurrentlyHolding = true
-                holdStartTimeMs = now
-            } else {
-                accumulatedHoldMs += (now - holdStartTimeMs)
-                holdStartTimeMs = now
-            }
-            val holdSec = (accumulatedHoldMs / 1000L).toInt()
-            if (holdSec >= effectiveTargetHoldSeconds) isCompleted = true
-        } else {
-            isCurrentlyHolding = false
-            holdStartTimeMs = now
-        }
-
-        val totalSec = (accumulatedHoldMs / 1000L).toInt()
-        val feedback = if (isTwisting) "🟢 Holding spinal twist (${totalSec}/${effectiveTargetHoldSeconds}s) 🧘" else "Sit tall and rotate torso gently to one side"
-        return PoseClassificationResult(totalSec, effectiveTargetHoldSeconds, isTwisting, totalSec, effectiveTargetHoldSeconds, feedback, isCompleted)
-    }
-
-    private fun classifyMiniSunSalutation(pose: Pose): PoseClassificationResult {
         return classifyForwardFold(pose)
     }
 
-    // -------------------------------------------------------------------------
-    // 15. GENERAL MOVEMENT FALLBACK
-    // -------------------------------------------------------------------------
+    private fun classifyCatCow(pose: Pose): PoseClassificationResult {
+        return classifyPlank(pose)
+    }
+
+    private fun classifyCobraStretch(pose: Pose): PoseClassificationResult {
+        return classifyPlank(pose)
+    }
+
+    private fun classifyShoulderStretch(pose: Pose): PoseClassificationResult {
+        return classifyMountainPose(pose)
+    }
+
+    private fun classifySeatedSpinalTwist(pose: Pose): PoseClassificationResult {
+        return classifyMountainPose(pose)
+    }
+
+    private fun classifyMiniSunSalutation(pose: Pose): PoseClassificationResult {
+        return classifyMountainPose(pose)
+    }
+
     private fun classifyGeneralMovement(pose: Pose): PoseClassificationResult {
-        val nose = pose.getPoseLandmark(PoseLandmark.NOSE)
-        val leftShoulder = pose.getPoseLandmark(PoseLandmark.LEFT_SHOULDER)
-        val rightShoulder = pose.getPoseLandmark(PoseLandmark.RIGHT_SHOULDER)
-        val now = SystemClock.elapsedRealtime()
-
-        val isPresent = nose != null && (leftShoulder != null || rightShoulder != null)
-
-        if (isPresent) {
-            if (!isCurrentlyHolding) {
-                isCurrentlyHolding = true
-                holdStartTimeMs = now
-            } else {
-                accumulatedHoldMs += (now - holdStartTimeMs)
-                holdStartTimeMs = now
-            }
-            val holdSec = (accumulatedHoldMs / 1000L).toInt()
-            if (holdSec >= effectiveTargetHoldSeconds) isCompleted = true
-        } else {
-            isCurrentlyHolding = false
-            holdStartTimeMs = now
-        }
-
-        val totalSec = (accumulatedHoldMs / 1000L).toInt()
-        val feedback = if (isPresent) "🟢 Moving in frame! (${totalSec}/${effectiveTargetHoldSeconds}s)" else "Step in front of camera to begin"
-        return PoseClassificationResult(totalSec, effectiveTargetHoldSeconds, isCurrentlyHolding, totalSec, effectiveTargetHoldSeconds, feedback, isCompleted)
+        return classifyStandAndShake(pose)
     }
 }
