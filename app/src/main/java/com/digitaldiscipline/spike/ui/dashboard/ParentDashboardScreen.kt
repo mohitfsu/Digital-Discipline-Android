@@ -60,7 +60,8 @@ fun ParentDashboardScreen(
     isA11yActive: Boolean,
     isOverlayActive: Boolean,
     onNavigateToCloudHub: () -> Unit,
-    onNavigateToPairing: () -> Unit
+    onNavigateToPairing: () -> Unit,
+    onLockReturnToChildMode: (() -> Unit)? = null
 ) {
     val rules by policyRepository.getAllRulesFlow().collectAsState(initial = emptyList())
     val schedules by policyRepository.getAllSchedulesFlow().collectAsState(initial = emptyList())
@@ -102,6 +103,12 @@ fun ParentDashboardScreen(
     val isProtectionActive = isA11yActive && isOverlayActive
     val isPaired = !pairedFamilyId.isNullOrBlank()
 
+    if (onLockReturnToChildMode != null) {
+        androidx.activity.compose.BackHandler {
+            onLockReturnToChildMode()
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -110,6 +117,40 @@ fun ParentDashboardScreen(
             .verticalScroll(rememberScrollState())
     ) {
         Spacer(modifier = Modifier.height(16.dp))
+
+        if (onLockReturnToChildMode != null) {
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = Color(0xFF0F172A),
+                border = BorderStroke(1.dp, Color(0xFF10B981)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("🔑", fontSize = 16.sp)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column {
+                            Text("Parent Admin Active", color = Color(0xFF10B981), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text("Child Device Settings Unlocked", color = Color(0xFF94A3B8), fontSize = 10.sp)
+                        }
+                    }
+                    Button(
+                        onClick = { onLockReturnToChildMode() },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                        modifier = Modifier.height(34.dp)
+                    ) {
+                        Text("🔒 Lock Child Mode", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0F172A))
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(14.dp))
+        }
 
         // App Title Header
         Row(
@@ -1255,7 +1296,30 @@ fun ParentDashboardScreen(
             title = { Text("Switch Operating Mode", color = Color.White, fontWeight = FontWeight.Bold) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Choose which mode you want to switch to:", color = Color(0xFF94A3B8), fontSize = 12.sp)
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = Color(0xFF10B981).copy(alpha = 0.2f),
+                        border = BorderStroke(1.dp, Color(0xFF10B981)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                coroutineScope.launch {
+                                    preferencesManager.setUserMode(com.digitaldiscipline.spike.data.local.entities.UserMode.CHILD.name)
+                                    preferencesManager.setDeviceRole("CHILD_DEVICE")
+                                }
+                                onLockReturnToChildMode?.invoke()
+                                showParentModeSwitcherDialog = false
+                            }
+                    ) {
+                        Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text("👶", fontSize = 22.sp)
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text("Child Mode", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                Text("Fun challenges, earned screen time wallet & parent PIN lock", color = Color(0xFF94A3B8), fontSize = 11.sp)
+                            }
+                        }
+                    }
 
                     Surface(
                         shape = RoundedCornerShape(10.dp),

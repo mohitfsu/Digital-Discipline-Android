@@ -182,6 +182,7 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     } else {
+                        var isChildParentAdminSessionActive by remember { mutableStateOf(false) }
                         when (currentScreen) {
                             AppScreen.DASHBOARD -> {
                                 if (userModeString == UserMode.SELF.name) {
@@ -562,28 +563,44 @@ class MainActivity : ComponentActivity() {
                                         }
                                     )
                                 } else if (userModeString == UserMode.CHILD.name || userModeString == "CHILD") {
-                                    com.digitaldiscipline.spike.ui.dashboard.ChildDashboardScreen(
-                                        context = this@MainActivity,
-                                        coroutineScope = lifecycleScope,
-                                        preferencesManager = preferencesManager,
-                                        walletService = walletService,
-                                        pinManager = pinManager,
-                                        syncManager = syncManager,
-                                        isA11yActive = isAccessibilityGrantedState.value,
-                                        isOverlayActive = isOverlayGrantedState.value,
-                                        onNavigateToPairing = { currentScreen = AppScreen.DEVICE_PAIRING },
-                                        onOpenParentAdmin = {
-                                            lifecycleScope.launch {
-                                                preferencesManager.setUserMode(UserMode.FAMILY.name)
-                                                preferencesManager.setDeviceRole("PARENT_DEVICE")
+                                    if (isChildParentAdminSessionActive) {
+                                        ParentDashboardScreen(
+                                            context = this@MainActivity,
+                                            coroutineScope = lifecycleScope,
+                                            policyEngine = policyEngine,
+                                            policyRepository = policyRepository,
+                                            analyticsRepository = analyticsRepository,
+                                            preferencesManager = preferencesManager,
+                                            syncManager = syncManager,
+                                            pinManager = pinManager,
+                                            pairingManager = pairingManager,
+                                            isA11yActive = isAccessibilityGrantedState.value,
+                                            isOverlayActive = isOverlayGrantedState.value,
+                                            onNavigateToCloudHub = { currentScreen = AppScreen.CLOUD_HUB },
+                                            onNavigateToPairing = { currentScreen = AppScreen.DEVICE_PAIRING },
+                                            onLockReturnToChildMode = { isChildParentAdminSessionActive = false }
+                                        )
+                                    } else {
+                                        com.digitaldiscipline.spike.ui.dashboard.ChildDashboardScreen(
+                                            context = this@MainActivity,
+                                            coroutineScope = lifecycleScope,
+                                            preferencesManager = preferencesManager,
+                                            walletService = walletService,
+                                            pinManager = pinManager,
+                                            syncManager = syncManager,
+                                            isA11yActive = isAccessibilityGrantedState.value,
+                                            isOverlayActive = isOverlayGrantedState.value,
+                                            onNavigateToPairing = { currentScreen = AppScreen.DEVICE_PAIRING },
+                                            onOpenParentAdmin = {
+                                                isChildParentAdminSessionActive = true
+                                            },
+                                            onSwitchMode = { newMode ->
+                                                lifecycleScope.launch {
+                                                    preferencesManager.setUserMode(newMode.name)
+                                                }
                                             }
-                                        },
-                                        onSwitchMode = { newMode ->
-                                            lifecycleScope.launch {
-                                                preferencesManager.setUserMode(newMode.name)
-                                            }
-                                        }
-                                    )
+                                        )
+                                    }
                                 } else {
                                     ParentDashboardScreen(
                                         context = this@MainActivity,
@@ -598,7 +615,8 @@ class MainActivity : ComponentActivity() {
                                         isA11yActive = isAccessibilityGrantedState.value,
                                         isOverlayActive = isOverlayGrantedState.value,
                                         onNavigateToCloudHub = { currentScreen = AppScreen.CLOUD_HUB },
-                                        onNavigateToPairing = { currentScreen = AppScreen.DEVICE_PAIRING }
+                                        onNavigateToPairing = { currentScreen = AppScreen.DEVICE_PAIRING },
+                                        onLockReturnToChildMode = null
                                     )
                                 }
                             }
