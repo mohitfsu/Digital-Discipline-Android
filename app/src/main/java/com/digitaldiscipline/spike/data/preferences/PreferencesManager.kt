@@ -76,6 +76,21 @@ open class PreferencesManager(private val context: Context? = null) {
         val KEY_USER_DISPLAY_NAME = stringPreferencesKey("user_display_name")
         val KEY_ONBOARDING_BEHAVIOUR_PATTERN = stringPreferencesKey("onboarding_behaviour_pattern")
         val KEY_ONBOARDING_SCREEN_TIME_ESTIMATE = stringPreferencesKey("onboarding_screen_time_estimate")
+
+        // Family & Office Mode Specific State
+        val KEY_FAMILY_ROLE = stringPreferencesKey("family_role") // PARENT, CHILD
+        val KEY_AUTO_BLOCK_GAMES = booleanPreferencesKey("auto_block_games")
+        val KEY_AUTO_BLOCK_SOCIAL = booleanPreferencesKey("auto_block_social")
+        val KEY_AUTO_BLOCK_STREAMING = booleanPreferencesKey("auto_block_streaming")
+
+        val KEY_OFFICE_START_HOUR = intPreferencesKey("office_start_hour")
+        val KEY_OFFICE_START_MINUTE = intPreferencesKey("office_start_minute")
+        val KEY_OFFICE_END_HOUR = intPreferencesKey("office_end_hour")
+        val KEY_OFFICE_END_MINUTE = intPreferencesKey("office_end_minute")
+        val KEY_OFFICE_DAYS = stringPreferencesKey("office_days") // "2,3,4,5,6" (Mon-Fri)
+        val KEY_OFFICE_DEEP_WORK_ACTIVE = booleanPreferencesKey("office_deep_work_active")
+        val KEY_OFFICE_DEEP_WORK_EXPIRY = longPreferencesKey("office_deep_work_expiry")
+        val KEY_OFFICE_MEETING_MODE = booleanPreferencesKey("office_meeting_mode")
     }
 
     val lastReflectionDateFlow: Flow<String?> = (context?.dataStore?.data ?: kotlinx.coroutines.flow.flowOf(emptyPreferences()))
@@ -463,6 +478,96 @@ open class PreferencesManager(private val context: Context? = null) {
 
     open suspend fun setOnboardingScreenTimeEstimate(estimate: String) {
         context?.dataStore?.edit { it[KEY_ONBOARDING_SCREEN_TIME_ESTIMATE] = estimate }
+    }
+
+    // -------------------------------------------------------------------------
+    // Family & Office Mode Flows & Setters
+    // -------------------------------------------------------------------------
+
+    val familyRoleFlow: Flow<String> = (context?.dataStore?.data ?: kotlinx.coroutines.flow.flowOf(emptyPreferences()))
+        .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
+        .map { it[KEY_FAMILY_ROLE] ?: "PARENT" }
+
+    val autoBlockGamesFlow: Flow<Boolean> = (context?.dataStore?.data ?: kotlinx.coroutines.flow.flowOf(emptyPreferences()))
+        .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
+        .map { it[KEY_AUTO_BLOCK_GAMES] ?: false }
+
+    val autoBlockSocialFlow: Flow<Boolean> = (context?.dataStore?.data ?: kotlinx.coroutines.flow.flowOf(emptyPreferences()))
+        .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
+        .map { it[KEY_AUTO_BLOCK_SOCIAL] ?: false }
+
+    val autoBlockStreamingFlow: Flow<Boolean> = (context?.dataStore?.data ?: kotlinx.coroutines.flow.flowOf(emptyPreferences()))
+        .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
+        .map { it[KEY_AUTO_BLOCK_STREAMING] ?: false }
+
+    val officeStartHourFlow: Flow<Int> = (context?.dataStore?.data ?: kotlinx.coroutines.flow.flowOf(emptyPreferences()))
+        .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
+        .map { it[KEY_OFFICE_START_HOUR] ?: 9 }
+
+    val officeStartMinuteFlow: Flow<Int> = (context?.dataStore?.data ?: kotlinx.coroutines.flow.flowOf(emptyPreferences()))
+        .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
+        .map { it[KEY_OFFICE_START_MINUTE] ?: 0 }
+
+    val officeEndHourFlow: Flow<Int> = (context?.dataStore?.data ?: kotlinx.coroutines.flow.flowOf(emptyPreferences()))
+        .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
+        .map { it[KEY_OFFICE_END_HOUR] ?: 17 }
+
+    val officeEndMinuteFlow: Flow<Int> = (context?.dataStore?.data ?: kotlinx.coroutines.flow.flowOf(emptyPreferences()))
+        .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
+        .map { it[KEY_OFFICE_END_MINUTE] ?: 0 }
+
+    val officeDaysFlow: Flow<String> = (context?.dataStore?.data ?: kotlinx.coroutines.flow.flowOf(emptyPreferences()))
+        .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
+        .map { it[KEY_OFFICE_DAYS] ?: "2,3,4,5,6" } // Mon-Fri
+
+    val officeDeepWorkActiveFlow: Flow<Boolean> = (context?.dataStore?.data ?: kotlinx.coroutines.flow.flowOf(emptyPreferences()))
+        .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
+        .map { it[KEY_OFFICE_DEEP_WORK_ACTIVE] ?: false }
+
+    val officeDeepWorkExpiryFlow: Flow<Long> = (context?.dataStore?.data ?: kotlinx.coroutines.flow.flowOf(emptyPreferences()))
+        .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
+        .map { it[KEY_OFFICE_DEEP_WORK_EXPIRY] ?: 0L }
+
+    val officeMeetingModeFlow: Flow<Boolean> = (context?.dataStore?.data ?: kotlinx.coroutines.flow.flowOf(emptyPreferences()))
+        .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
+        .map { it[KEY_OFFICE_MEETING_MODE] ?: false }
+
+    open suspend fun setFamilyRole(role: String) {
+        context?.dataStore?.edit { it[KEY_FAMILY_ROLE] = role }
+    }
+
+    open suspend fun setAutoBlockGames(enabled: Boolean) {
+        context?.dataStore?.edit { it[KEY_AUTO_BLOCK_GAMES] = enabled }
+    }
+
+    open suspend fun setAutoBlockSocial(enabled: Boolean) {
+        context?.dataStore?.edit { it[KEY_AUTO_BLOCK_SOCIAL] = enabled }
+    }
+
+    open suspend fun setAutoBlockStreaming(enabled: Boolean) {
+        context?.dataStore?.edit { it[KEY_AUTO_BLOCK_STREAMING] = enabled }
+    }
+
+    open suspend fun setOfficeSchedule(startH: Int, startM: Int, endH: Int, endM: Int, days: String = "2,3,4,5,6") {
+        context?.dataStore?.edit {
+            it[KEY_OFFICE_START_HOUR] = startH
+            it[KEY_OFFICE_START_MINUTE] = startM
+            it[KEY_OFFICE_END_HOUR] = endH
+            it[KEY_OFFICE_END_MINUTE] = endM
+            it[KEY_OFFICE_DAYS] = days
+        }
+    }
+
+    open suspend fun setOfficeDeepWork(active: Boolean, durationMinutes: Int = 0) {
+        val expiry = if (active) System.currentTimeMillis() + (durationMinutes * 60_000L) else 0L
+        context?.dataStore?.edit {
+            it[KEY_OFFICE_DEEP_WORK_ACTIVE] = active
+            it[KEY_OFFICE_DEEP_WORK_EXPIRY] = expiry
+        }
+    }
+
+    open suspend fun setOfficeMeetingMode(active: Boolean) {
+        context?.dataStore?.edit { it[KEY_OFFICE_MEETING_MODE] = active }
     }
 }
 

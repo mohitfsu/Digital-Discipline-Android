@@ -141,19 +141,67 @@ object GoalTemplateRepository {
         unit = "seconds"
     )
 
-    // Common Distraction App Catalog
+    // Common Distraction App Catalog (India & Global Curated)
     val COMMON_DISTRACTIONS = listOf(
+        // Social Media & Short Video
         DistractionAppRecommendation("com.instagram.android", "Instagram", "📸", TriggerCategory.SOCIAL_MEDIA),
         DistractionAppRecommendation("com.google.android.youtube", "YouTube", "▶️", TriggerCategory.VIDEO_STREAMING),
-        DistractionAppRecommendation("com.zhiliaoapp.musically", "TikTok", "🎵", TriggerCategory.SOCIAL_MEDIA),
-        DistractionAppRecommendation("com.reddit.frontpage", "Reddit", "🤖", TriggerCategory.SOCIAL_MEDIA),
-        DistractionAppRecommendation("com.dts.freefireth", "Gaming (Free Fire)", "🎮", TriggerCategory.GAMING),
         DistractionAppRecommendation("com.snapchat.android", "Snapchat", "👻", TriggerCategory.SOCIAL_MEDIA),
-        DistractionAppRecommendation("com.facebook.katana", "Facebook", "👤", TriggerCategory.SOCIAL_MEDIA),
-        DistractionAppRecommendation("com.twitter.android", "X / Twitter", "🐦", TriggerCategory.SOCIAL_MEDIA),
-        DistractionAppRecommendation("com.netflix.mediaclient", "Netflix", "🎬", TriggerCategory.VIDEO_STREAMING),
         DistractionAppRecommendation("com.whatsapp", "WhatsApp", "💬", TriggerCategory.SOCIAL_MEDIA),
-        DistractionAppRecommendation("com.android.chrome", "Chrome", "🌐", TriggerCategory.CUSTOM)
+        DistractionAppRecommendation("org.telegram.messenger", "Telegram", "✈️", TriggerCategory.SOCIAL_MEDIA),
+        DistractionAppRecommendation("com.twitter.android", "X / Twitter", "🐦", TriggerCategory.SOCIAL_MEDIA),
+        DistractionAppRecommendation("com.facebook.katana", "Facebook", "👤", TriggerCategory.SOCIAL_MEDIA),
+        DistractionAppRecommendation("com.reddit.frontpage", "Reddit", "🤖", TriggerCategory.SOCIAL_MEDIA),
+        DistractionAppRecommendation("com.instagram.barcelona", "Threads", "🧵", TriggerCategory.SOCIAL_MEDIA),
+        DistractionAppRecommendation("in.mohalla.sharechat", "ShareChat", "🇮🇳", TriggerCategory.SOCIAL_MEDIA),
+        DistractionAppRecommendation("in.mohalla.video", "Moj", "🎥", TriggerCategory.SOCIAL_MEDIA),
+        DistractionAppRecommendation("com.eterno.shortvideos", "Josh", "✨", TriggerCategory.SOCIAL_MEDIA),
+        DistractionAppRecommendation("com.pinterest", "Pinterest", "📌", TriggerCategory.SOCIAL_MEDIA),
+        DistractionAppRecommendation("com.discord", "Discord", "🎮", TriggerCategory.SOCIAL_MEDIA),
+        DistractionAppRecommendation("com.zhiliaoapp.musically", "TikTok", "🎵", TriggerCategory.SOCIAL_MEDIA),
+
+        // Gaming (India & Global)
+        DistractionAppRecommendation("com.pubg.imobile", "BGMI (Battlegrounds)", "🔫", TriggerCategory.GAMING),
+        DistractionAppRecommendation("com.dts.freefireth", "Free Fire", "🔥", TriggerCategory.GAMING),
+        DistractionAppRecommendation("com.dts.freefiremax", "Free Fire MAX", "🔥", TriggerCategory.GAMING),
+        DistractionAppRecommendation("com.ludo.king", "Ludo King", "🎲", TriggerCategory.GAMING),
+        DistractionAppRecommendation("com.king.candycrushsaga", "Candy Crush Saga", "🍬", TriggerCategory.GAMING),
+        DistractionAppRecommendation("com.kiloo.subwaysurf", "Subway Surfers", "🏃", TriggerCategory.GAMING),
+        DistractionAppRecommendation("com.roblox.client", "Roblox", "🧱", TriggerCategory.GAMING),
+        DistractionAppRecommendation("com.activision.callofduty.shooter", "Call of Duty Mobile", "🎖️", TriggerCategory.GAMING),
+        DistractionAppRecommendation("com.supercell.clashofclans", "Clash of Clans", "⚔️", TriggerCategory.GAMING),
+        DistractionAppRecommendation("com.supercell.clashroyale", "Clash Royale", "👑", TriggerCategory.GAMING),
+        DistractionAppRecommendation("com.mojang.minecraftpe", "Minecraft", "⛏️", TriggerCategory.GAMING),
+        DistractionAppRecommendation("com.gameloft.android.ANMP.GloftA9HM", "Asphalt 9 Legends", "🏎️", TriggerCategory.GAMING),
+
+        // Video Streaming & OTT (India & Global)
+        DistractionAppRecommendation("in.startv.hotstar", "JioHotstar / Disney+", "⭐", TriggerCategory.VIDEO_STREAMING),
+        DistractionAppRecommendation("com.jio.media.ondemand", "JioCinema", "🎬", TriggerCategory.VIDEO_STREAMING),
+        DistractionAppRecommendation("com.netflix.mediaclient", "Netflix", "🍿", TriggerCategory.VIDEO_STREAMING),
+        DistractionAppRecommendation("com.amazon.avod.thirdpartyclient", "Prime Video", "📺", TriggerCategory.VIDEO_STREAMING),
+        DistractionAppRecommendation("com.graymatrix.did", "Zee5", "📺", TriggerCategory.VIDEO_STREAMING),
+        DistractionAppRecommendation("com.sonyliv", "SonyLIV", "🏆", TriggerCategory.VIDEO_STREAMING),
+        DistractionAppRecommendation("com.mxtech.videoplayer.ad", "MX Player", "🎥", TriggerCategory.VIDEO_STREAMING),
+        DistractionAppRecommendation("tv.twitch.android.app", "Twitch", "🟣", TriggerCategory.VIDEO_STREAMING),
+        DistractionAppRecommendation("com.google.android.apps.youtube.music", "YouTube Music", "🎵", TriggerCategory.VIDEO_STREAMING),
+        DistractionAppRecommendation("com.spotify.music", "Spotify", "🎧", TriggerCategory.VIDEO_STREAMING),
+
+        // Shopping & Impulse Browsing
+        DistractionAppRecommendation("com.amazon.mShop.android.shopping", "Amazon", "📦", TriggerCategory.SHOPPING),
+        DistractionAppRecommendation("com.flipkart.android", "Flipkart", "🛍️", TriggerCategory.SHOPPING),
+        DistractionAppRecommendation("com.myntra.android", "Myntra", "👗", TriggerCategory.SHOPPING),
+        DistractionAppRecommendation("com.meesho.supply", "Meesho", "🏷️", TriggerCategory.SHOPPING),
+        DistractionAppRecommendation("com.ril.ajio", "Ajio", "👕", TriggerCategory.SHOPPING),
+        DistractionAppRecommendation("com.fsn.nykaa", "Nykaa", "💄", TriggerCategory.SHOPPING),
+
+        // Food & Quick Commerce
+        DistractionAppRecommendation("com.application.zomato", "Zomato", "🍔", TriggerCategory.FOOD_DELIVERY),
+        DistractionAppRecommendation("in.swiggy.android", "Swiggy", "🍕", TriggerCategory.FOOD_DELIVERY),
+        DistractionAppRecommendation("com.zeptoconsumerapp", "Zepto", "⚡", TriggerCategory.FOOD_DELIVERY),
+        DistractionAppRecommendation("com.grofers.customerapp", "Blinkit", "🛒", TriggerCategory.FOOD_DELIVERY),
+
+        // Web Browsers
+        DistractionAppRecommendation("com.android.chrome", "Google Chrome", "🌐", TriggerCategory.CUSTOM)
     )
 
     // Templates

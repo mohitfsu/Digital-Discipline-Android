@@ -17,8 +17,20 @@ enum class GoalCategory {
 }
 
 enum class UserMode {
-    PARENT,
-    SELF
+    SELF,
+    FAMILY,
+    OFFICE,
+    PARENT; // Legacy alias for FAMILY
+
+    companion object {
+        fun fromString(value: String?): UserMode {
+            return when (value?.uppercase()) {
+                "PARENT", "FAMILY" -> FAMILY
+                "OFFICE", "WORKPLACE", "CORPORATE" -> OFFICE
+                else -> SELF
+            }
+        }
+    }
 }
 
 /**

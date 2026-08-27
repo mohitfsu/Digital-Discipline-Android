@@ -37,9 +37,9 @@ class BehaviourPolicyResolver(
         userMode: UserMode = UserMode.PARENT,
         currentTimeMillis: Long = System.currentTimeMillis()
     ): PolicyResolutionResult {
-        // 1. Check Existing Parent Enforcement Policy (Mandatory Precedence)
+        // 1. Check Existing Family/Parent Enforcement Policy (Mandatory Precedence)
         val parentRule = policyRepository.getRuleForPackage(packageName)
-        if (userMode == UserMode.PARENT) {
+        if (userMode == UserMode.FAMILY || userMode == UserMode.PARENT) {
             return if (parentRule != null && parentRule.isEnabled) {
                 PolicyResolutionResult.ParentPolicyMatch(parentRule)
             } else {

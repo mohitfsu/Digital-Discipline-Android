@@ -1,4 +1,4 @@
-package com.digitaldiscipline.spike.ui.onboarding
+﻿package com.digitaldiscipline.spike.ui.onboarding
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -10,7 +10,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -20,13 +19,14 @@ import androidx.compose.ui.unit.sp
 @Composable
 fun ModeSelectionScreen(
     onSelectSelfMode: () -> Unit,
-    onSelectParentMode: () -> Unit
+    onSelectFamilyMode: () -> Unit,
+    onSelectOfficeMode: () -> Unit
 ) {
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFF090D16))
-            .padding(24.dp)
+            .padding(20.dp)
     ) {
         Column(
             modifier = Modifier
@@ -40,7 +40,7 @@ fun ModeSelectionScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(16.dp))
                 Text(
                     text = "DIGITAL DISCIPLINE",
                     color = Color(0xFF38BDF8),
@@ -48,85 +48,85 @@ fun ModeSelectionScreen(
                     fontWeight = FontWeight.Black,
                     letterSpacing = 2.sp
                 )
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(12.dp))
                 Text(
-                    text = "Who are you setting up\nDigital Discipline for?",
+                    text = "Choose Your Operating Mode",
                     color = Color.White,
-                    fontSize = 24.sp,
+                    fontSize = 23.sp,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center,
-                    lineHeight = 32.sp
+                    lineHeight = 30.sp
                 )
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "Choose the mode that fits your journey.",
+                    text = "Select how you would like to run Digital Discipline.",
                     color = Color(0xFF94A3B8),
-                    fontSize = 14.sp,
+                    fontSize = 13.sp,
                     textAlign = TextAlign.Center
                 )
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
-            // Two Mode Cards
+            // Three Distinct Mode Cards
             Column(
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                // Card 1: For Myself (Self Mode)
+                // Card 1: Self Mode
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(18.dp),
+                    shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
-                    border = BorderStroke(1.5.dp, Color(0xFF0284C7).copy(alpha = 0.6f))
+                    border = BorderStroke(1.5.dp, Color(0xFF0284C7).copy(alpha = 0.7f))
                 ) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(22.dp)
+                            .padding(18.dp)
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Surface(
                                 shape = RoundedCornerShape(12.dp),
                                 color = Color(0xFF0284C7).copy(alpha = 0.2f),
-                                modifier = Modifier.size(50.dp)
+                                modifier = Modifier.size(46.dp)
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
-                                    Text("🧑", fontSize = 26.sp)
+                                    Text("🧑", fontSize = 24.sp)
                                 }
                             }
-                            Spacer(modifier = Modifier.width(16.dp))
+                            Spacer(modifier = Modifier.width(14.dp))
                             Column {
                                 Text(
-                                    text = "FOR MYSELF",
+                                    text = "SELF MODE",
                                     color = Color.White,
-                                    fontSize = 18.sp,
+                                    fontSize = 17.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                                 Text(
-                                    text = "Personal habit control",
+                                    text = "Personal mindfulness & earned screen time",
                                     color = Color(0xFF38BDF8),
-                                    fontSize = 12.sp,
+                                    fontSize = 11.sp,
                                     fontWeight = FontWeight.Medium
                                 )
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(14.dp))
+                        Spacer(modifier = Modifier.height(10.dp))
 
                         Text(
-                            text = "Build better habits and take back control of distracting apps. Put a small pause between impulse and action.",
+                            text = "Build mindful screen habits. Unlock controlled access in exchange for physical reps, breathing resets, and cognitive pauses.",
                             color = Color(0xFFCBD5E1),
-                            fontSize = 13.sp,
-                            lineHeight = 19.sp
+                            fontSize = 12.sp,
+                            lineHeight = 17.sp
                         )
 
-                        Spacer(modifier = Modifier.height(18.dp))
+                        Spacer(modifier = Modifier.height(14.dp))
 
                         Button(
                             onClick = onSelectSelfMode,
-                            modifier = Modifier.fillMaxWidth().height(48.dp),
-                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth().height(42.dp),
+                            shape = RoundedCornerShape(10.dp),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = Color(0xFF0284C7)
                             )
@@ -134,75 +134,143 @@ fun ModeSelectionScreen(
                             Text(
                                 text = "Start Self Mode",
                                 color = Color.White,
-                                fontSize = 15.sp,
+                                fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold
                             )
                         }
                     }
                 }
 
-                // Card 2: Admin & Workspace Policy Mode
+                // Card 2: Family Mode (Parent & Child)
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(18.dp),
+                    shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
-                    border = BorderStroke(1.dp, Color(0xFF334155))
+                    border = BorderStroke(1.5.dp, Color(0xFF059669).copy(alpha = 0.7f))
                 ) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(22.dp)
+                            .padding(18.dp)
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Surface(
                                 shape = RoundedCornerShape(12.dp),
-                                color = Color(0xFF6366F1).copy(alpha = 0.2f),
-                                modifier = Modifier.size(50.dp)
+                                color = Color(0xFF059669).copy(alpha = 0.2f),
+                                modifier = Modifier.size(46.dp)
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
-                                    Text("🏢", fontSize = 24.sp)
+                                    Text("👨‍👩‍👧", fontSize = 24.sp)
                                 }
                             }
-                            Spacer(modifier = Modifier.width(16.dp))
+                            Spacer(modifier = Modifier.width(14.dp))
                             Column {
                                 Text(
-                                    text = "ADMIN & WORKSPACE",
+                                    text = "FAMILY MODE",
                                     color = Color.White,
-                                    fontSize = 18.sp,
+                                    fontSize = 17.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                                 Text(
-                                    text = "Managed device policy & oversight",
-                                    color = Color(0xFFA5B4FC),
-                                    fontSize = 12.sp,
+                                    text = "Parent & Child protection & PIN security",
+                                    color = Color(0xFF10B981),
+                                    fontSize = 11.sp,
                                     fontWeight = FontWeight.Medium
                                 )
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(14.dp))
+                        Spacer(modifier = Modifier.height(10.dp))
 
                         Text(
-                            text = "Manage focus schedules, app restrictions, and workspace policies with Admin PIN protection and remote cloud sync.",
+                            text = "Set study/bedtime schedules, auto-block games & social media on child's device, and guard rules with custom Parent PIN.",
                             color = Color(0xFFCBD5E1),
-                            fontSize = 13.sp,
-                            lineHeight = 19.sp
+                            fontSize = 12.sp,
+                            lineHeight = 17.sp
                         )
 
-                        Spacer(modifier = Modifier.height(18.dp))
+                        Spacer(modifier = Modifier.height(14.dp))
 
                         Button(
-                            onClick = onSelectParentMode,
-                            modifier = Modifier.fillMaxWidth().height(48.dp),
-                            shape = RoundedCornerShape(12.dp),
+                            onClick = onSelectFamilyMode,
+                            modifier = Modifier.fillMaxWidth().height(42.dp),
+                            shape = RoundedCornerShape(10.dp),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFF4F46E5)
+                                containerColor = Color(0xFF059669)
                             )
                         ) {
                             Text(
-                                text = "Set Up Admin Policy",
+                                text = "Set Up Family Mode",
                                 color = Color.White,
-                                fontSize = 15.sp,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+
+                // Card 3: Office Mode (Workplace & Corporate)
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+                    border = BorderStroke(1.5.dp, Color(0xFF6366F1).copy(alpha = 0.7f))
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(18.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = Color(0xFF6366F1).copy(alpha = 0.2f),
+                                modifier = Modifier.size(46.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Text("💼", fontSize = 24.sp)
+                                }
+                            }
+                            Spacer(modifier = Modifier.width(14.dp))
+                            Column {
+                                Text(
+                                    text = "OFFICE MODE",
+                                    color = Color.White,
+                                    fontSize = 17.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = "9-to-5 work focus & deep work sprints",
+                                    color = Color(0xFFA5B4FC),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Text(
+                            text = "Automate 9-to-5 distraction blocking, launch Pomodoro deep work blocks, and keep work tools (Slack, Teams, Gmail) accessible.",
+                            color = Color(0xFFCBD5E1),
+                            fontSize = 12.sp,
+                            lineHeight = 17.sp
+                        )
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        Button(
+                            onClick = onSelectOfficeMode,
+                            modifier = Modifier.fillMaxWidth().height(42.dp),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF6366F1)
+                            )
+                        ) {
+                            Text(
+                                text = "Enter Office Mode",
+                                color = Color.White,
+                                fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold
                             )
                         }
@@ -210,16 +278,16 @@ fun ModeSelectionScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
             // Footer note
             Text(
-                text = "You can switch modes anytime in Settings.",
+                text = "You can switch between modes at any time in the app.",
                 color = Color(0xFF64748B),
                 fontSize = 12.sp,
                 textAlign = TextAlign.Center
             )
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
         }
     }
 }

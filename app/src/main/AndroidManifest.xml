@@ -154,6 +154,16 @@
             </intent-filter>
         </receiver>
 
+        <!-- Real-time Package Install Receiver for Category Auto-Blocking -->
+        <receiver
+            android:name=".detection.PackageInstallReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.PACKAGE_ADDED" />
+                <data android:scheme="package" />
+            </intent-filter>
+        </receiver>
+
     </application>
 
 </manifest>

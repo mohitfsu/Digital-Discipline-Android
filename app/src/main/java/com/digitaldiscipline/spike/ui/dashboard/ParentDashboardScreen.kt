@@ -8,11 +8,13 @@ import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -71,6 +73,11 @@ fun ParentDashboardScreen(
     val policyVersion by preferencesManager.policyVersionFlow.collectAsState(initial = 1)
     val lastPolicySync by preferencesManager.lastPolicySyncFlow.collectAsState(initial = 0L)
 
+    val autoBlockGames by preferencesManager.autoBlockGamesFlow.collectAsState(initial = false)
+    val autoBlockSocial by preferencesManager.autoBlockSocialFlow.collectAsState(initial = false)
+    val autoBlockStreaming by preferencesManager.autoBlockStreamingFlow.collectAsState(initial = false)
+    var showParentModeSwitcherDialog by remember { mutableStateOf(false) }
+
     var showPinDialogForAction by remember { mutableStateOf<(() -> Unit)?>(null) }
     var enteredPin by remember { mutableStateOf("") }
     var pinError by remember { mutableStateOf<String?>(null) }
@@ -120,19 +127,15 @@ fun ParentDashboardScreen(
             }
 
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                // Switch to Self Mode Button
+                // Switch Mode Button
                 OutlinedButton(
-                    onClick = {
-                        coroutineScope.launch {
-                            preferencesManager.setUserMode(com.digitaldiscipline.spike.data.local.entities.UserMode.SELF.name)
-                        }
-                    },
+                    onClick = { showParentModeSwitcherDialog = true },
                     shape = RoundedCornerShape(8.dp),
                     border = BorderStroke(1.dp, Color(0xFF0284C7)),
                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
                     modifier = Modifier.height(32.dp)
                 ) {
-                    Text("Self Mode", color = Color(0xFF38BDF8), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Text("Switch Mode", color = Color(0xFF38BDF8), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
 
                 Surface(
@@ -143,6 +146,134 @@ fun ParentDashboardScreen(
                     Box(contentAlignment = Alignment.Center) {
                         Text(if (isProtectionActive) "🛡️" else "⚠️", fontSize = 18.sp)
                     }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // Category-Level Auto-Blocking Card (Games, Social Media, Short Video)
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(1.dp, Color(0xFF059669).copy(alpha = 0.5f), RoundedCornerShape(14.dp)),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF064E3B).copy(alpha = 0.25f)),
+            shape = RoundedCornerShape(14.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text("🛡️ CATEGORY AUTO-BLOCKING", color = Color(0xFF10B981), fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                        Text("Auto-Lock Future Installs", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                    }
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = Color(0xFF10B981).copy(alpha = 0.2f)
+                    ) {
+                        Text("Active Watchdog", color = Color(0xFF10B981), fontSize = 9.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = "Automatically blocks newly installed apps in selected categories without requiring manual setup on child's phone.",
+                    color = Color(0xFF94A3B8),
+                    fontSize = 11.sp,
+                    lineHeight = 16.sp
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Toggle 1: Games
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color(0xFF1E293B))
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("🎮 Block All Games (BGMI, Free Fire, Ludo...)", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text("Current & future game installs", color = Color(0xFF94A3B8), fontSize = 10.sp)
+                    }
+                    Switch(
+                        checked = autoBlockGames,
+                        onCheckedChange = { enabled ->
+                            showPinDialogForAction = {
+                                coroutineScope.launch {
+                                    preferencesManager.setAutoBlockGames(enabled)
+                                    Toast.makeText(context, if (enabled) "Auto-Block Games enabled" else "Auto-Block Games disabled", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        },
+                        colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFF10B981), checkedTrackColor = Color(0xFF059669))
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Toggle 2: Social Media
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color(0xFF1E293B))
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("📸 Block All Social & Video (Insta, Moj, Josh...)", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text("Current & future social media apps", color = Color(0xFF94A3B8), fontSize = 10.sp)
+                    }
+                    Switch(
+                        checked = autoBlockSocial,
+                        onCheckedChange = { enabled ->
+                            showPinDialogForAction = {
+                                coroutineScope.launch {
+                                    preferencesManager.setAutoBlockSocial(enabled)
+                                    Toast.makeText(context, if (enabled) "Auto-Block Social Media enabled" else "Auto-Block Social Media disabled", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        },
+                        colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFF10B981), checkedTrackColor = Color(0xFF059669))
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Toggle 3: Streaming & OTT
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color(0xFF1E293B))
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("🎬 Block All Streaming (YouTube, Hotstar...)", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text("Current & future OTT apps", color = Color(0xFF94A3B8), fontSize = 10.sp)
+                    }
+                    Switch(
+                        checked = autoBlockStreaming,
+                        onCheckedChange = { enabled ->
+                            showPinDialogForAction = {
+                                coroutineScope.launch {
+                                    preferencesManager.setAutoBlockStreaming(enabled)
+                                    Toast.makeText(context, if (enabled) "Auto-Block Streaming enabled" else "Auto-Block Streaming disabled", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        },
+                        colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFF10B981), checkedTrackColor = Color(0xFF059669))
+                    )
                 }
             }
         }
@@ -1088,6 +1219,72 @@ fun ParentDashboardScreen(
                     confirmPinText = ""
                     pinError = null
                 }) {
+                    Text("Cancel", color = Color(0xFF94A3B8))
+                }
+            },
+            containerColor = Color(0xFF0F172A)
+        )
+    }
+
+    // Parent / Family Mode Switcher Dialog
+    if (showParentModeSwitcherDialog) {
+        AlertDialog(
+            onDismissRequest = { showParentModeSwitcherDialog = false },
+            title = { Text("Switch Operating Mode", color = Color.White, fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Choose which mode you want to switch to:", color = Color(0xFF94A3B8), fontSize = 12.sp)
+
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = Color(0xFF0284C7).copy(alpha = 0.2f),
+                        border = BorderStroke(1.dp, Color(0xFF38BDF8)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                coroutineScope.launch {
+                                    preferencesManager.setUserMode(com.digitaldiscipline.spike.data.local.entities.UserMode.SELF.name)
+                                }
+                                showParentModeSwitcherDialog = false
+                            }
+                    ) {
+                        Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text("🧑", fontSize = 22.sp)
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text("Self Mode", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                Text("Personal habit control & earned time wallet", color = Color(0xFF94A3B8), fontSize = 11.sp)
+                            }
+                        }
+                    }
+
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = Color(0xFF6366F1).copy(alpha = 0.2f),
+                        border = BorderStroke(1.dp, Color(0xFF6366F1)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                coroutineScope.launch {
+                                    preferencesManager.setUserMode(com.digitaldiscipline.spike.data.local.entities.UserMode.OFFICE.name)
+                                }
+                                showParentModeSwitcherDialog = false
+                            }
+                    ) {
+                        Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text("💼", fontSize = 22.sp)
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text("Office Mode", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                Text("9-to-5 work focus, deep work sprints & whitelist", color = Color(0xFF94A3B8), fontSize = 11.sp)
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showParentModeSwitcherDialog = false }) {
                     Text("Cancel", color = Color(0xFF94A3B8))
                 }
             },

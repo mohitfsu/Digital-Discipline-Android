@@ -103,8 +103,14 @@ class MainActivity : ComponentActivity() {
                                     onSelectSelfMode = {
                                         selectedOnboardingMode = UserMode.SELF
                                     },
-                                    onSelectParentMode = {
-                                        selectedOnboardingMode = UserMode.PARENT
+                                    onSelectFamilyMode = {
+                                        selectedOnboardingMode = UserMode.FAMILY
+                                    },
+                                    onSelectOfficeMode = {
+                                        lifecycleScope.launch {
+                                            preferencesManager.setUserMode(UserMode.OFFICE.name)
+                                            preferencesManager.setOnboardingCompleted(true)
+                                        }
                                     }
                                 )
                             }
@@ -127,7 +133,7 @@ class MainActivity : ComponentActivity() {
                                     }
                                 )
                             }
-                            UserMode.PARENT -> {
+                            UserMode.FAMILY, UserMode.PARENT -> {
                                 OnboardingScreen(
                                     context = this@MainActivity,
                                     policyRepository = policyRepository,
@@ -137,11 +143,17 @@ class MainActivity : ComponentActivity() {
                                     isUsageStatsGranted = isUsageStatsGrantedState.value,
                                     onCompleteOnboarding = {
                                         lifecycleScope.launch {
-                                            preferencesManager.setUserMode(UserMode.PARENT.name)
+                                            preferencesManager.setUserMode(UserMode.FAMILY.name)
                                             preferencesManager.setOnboardingCompleted(true)
                                         }
                                     }
                                 )
+                            }
+                            UserMode.OFFICE -> {
+                                lifecycleScope.launch {
+                                    preferencesManager.setUserMode(UserMode.OFFICE.name)
+                                    preferencesManager.setOnboardingCompleted(true)
+                                }
                             }
                         }
                     } else {
@@ -510,6 +522,20 @@ class MainActivity : ComponentActivity() {
                                             )
                                         }
                                     }
+                                } else if (userModeString == UserMode.OFFICE.name) {
+                                    com.digitaldiscipline.spike.ui.dashboard.OfficeDashboardScreen(
+                                        context = this@MainActivity,
+                                        coroutineScope = lifecycleScope,
+                                        policyRepository = policyRepository,
+                                        preferencesManager = preferencesManager,
+                                        isA11yActive = isAccessibilityGrantedState.value,
+                                        isOverlayActive = isOverlayGrantedState.value,
+                                        onSwitchMode = { newMode ->
+                                            lifecycleScope.launch {
+                                                preferencesManager.setUserMode(newMode.name)
+                                            }
+                                        }
+                                    )
                                 } else {
                                     ParentDashboardScreen(
                                         context = this@MainActivity,
