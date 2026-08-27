@@ -390,86 +390,32 @@ fun ParentDashboardScreen(
 
         Spacer(modifier = Modifier.height(14.dp))
 
-        // 2. Protection Health Card
-        if (isProtectionActive) {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .border(1.dp, Color(0xFF059669), RoundedCornerShape(14.dp)),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF064E3B).copy(alpha = 0.6f)),
-                shape = RoundedCornerShape(14.dp)
+        // 2. Parent Control Hub Status Card
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(1.dp, Color(0xFF059669), RoundedCornerShape(14.dp)),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF064E3B).copy(alpha = 0.6f)),
+            shape = RoundedCornerShape(14.dp)
+        ) {
+            Row(
+                modifier = Modifier.padding(14.dp).fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    modifier = Modifier.padding(14.dp).fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("✓", color = Color(0xFF34D399), fontSize = 22.sp, fontWeight = FontWeight.Black)
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Column {
-                        Text(
-                            text = "OFFLINE-FIRST PROTECTION ACTIVE",
-                            color = Color.White,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = "Enforcement is 100% local. Rules apply even with Wi-Fi/Data OFF.",
-                            color = Color(0xFFA7F3D0),
-                            fontSize = 11.sp
-                        )
-                    }
-                }
-            }
-        } else {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .border(1.dp, Color(0xFFDC2626), RoundedCornerShape(14.dp)),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF7F1D1D)),
-                shape = RoundedCornerShape(14.dp)
-            ) {
-                Column(modifier = Modifier.padding(14.dp)) {
+                Text("🛡️", fontSize = 22.sp)
+                Spacer(modifier = Modifier.width(10.dp))
+                Column {
                     Text(
-                        text = "⚠️ PROTECTION DISABLED",
+                        text = "PARENT CONTROL HUB ACTIVE",
                         color = Color.White,
-                        fontSize = 15.sp,
+                        fontSize = 14.sp,
                         fontWeight = FontWeight.Bold
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Required permissions are missing. Tap below to enable directly:",
-                        color = Color(0xFFFECACA),
+                        text = "Managing remote policies, school schedules, and child device boundaries.",
+                        color = Color(0xFFA7F3D0),
                         fontSize = 11.sp
                     )
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    if (!isA11yActive) {
-                        Button(
-                            onClick = {
-                                com.digitaldiscipline.spike.ui.onboarding.PermissionGuideOverlay.show(context)
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444)),
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)
-                        ) {
-                            Text("1. ENABLE ACCESSIBILITY SERVICE", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
-
-                    if (!isOverlayActive) {
-                        Button(
-                            onClick = {
-                                context.startActivity(
-                                    Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${context.packageName}"))
-                                )
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB)),
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("2. ENABLE DRAW OVER APPS (OVERLAY)", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
                 }
             }
         }
