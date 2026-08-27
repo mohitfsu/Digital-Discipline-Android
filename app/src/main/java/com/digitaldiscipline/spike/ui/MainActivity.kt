@@ -18,6 +18,7 @@ import com.digitaldiscipline.spike.ui.dashboard.SelfDashboardScreen
 import com.digitaldiscipline.spike.ui.dashboard.SelfBehaviourInsightsScreen
 import com.digitaldiscipline.spike.ui.dashboard.SelfWeeklyReviewScreen
 import com.digitaldiscipline.spike.ui.dashboard.TodayScreen
+import com.digitaldiscipline.spike.ui.onboarding.ChildOnboardingScreen
 import com.digitaldiscipline.spike.ui.onboarding.ModeSelectionScreen
 import com.digitaldiscipline.spike.ui.onboarding.OnboardingScreen
 import com.digitaldiscipline.spike.ui.onboarding.SelfModeOnboardingScreen
@@ -107,13 +108,7 @@ class MainActivity : ComponentActivity() {
                                         selectedOnboardingMode = UserMode.FAMILY
                                     },
                                     onSelectChildMode = {
-                                        lifecycleScope.launch {
-                                            preferencesManager.setUserMode(UserMode.CHILD.name)
-                                            preferencesManager.setDeviceRole("CHILD_DEVICE")
-                                            preferencesManager.setPairedFamilyId("")
-                                            preferencesManager.setOnboardingCompleted(true)
-                                            currentScreen = AppScreen.DEVICE_PAIRING
-                                        }
+                                        selectedOnboardingMode = UserMode.CHILD
                                     },
                                     onSelectOfficeMode = {
                                         lifecycleScope.launch {
@@ -160,11 +155,23 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
                             UserMode.CHILD -> {
-                                lifecycleScope.launch {
-                                    preferencesManager.setUserMode(UserMode.CHILD.name)
-                                    preferencesManager.setDeviceRole("CHILD_DEVICE")
-                                    preferencesManager.setOnboardingCompleted(true)
-                                }
+                                ChildOnboardingScreen(
+                                    context = this@MainActivity,
+                                    pairingManager = pairingManager,
+                                    syncManager = syncManager,
+                                    policyRepository = policyRepository,
+                                    preferencesManager = preferencesManager,
+                                    pinManager = pinManager,
+                                    isAccessibilityGranted = isAccessibilityGrantedState.value,
+                                    isOverlayGranted = isOverlayGrantedState.value,
+                                    isUsageStatsGranted = isUsageStatsGrantedState.value,
+                                    onComplete = {
+                                        selectedOnboardingMode = null
+                                    },
+                                    onBackToModeSelect = {
+                                        selectedOnboardingMode = null
+                                    }
+                                )
                             }
                             UserMode.OFFICE -> {
                                 lifecycleScope.launch {

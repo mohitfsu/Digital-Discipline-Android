@@ -412,6 +412,19 @@ object InterventionCatalog {
         // G. COGNITIVE MICRO-CHALLENGES (6)
         // =========================================================================
         InterventionDefinition(
+            id = "IMAGE_PUZZLE_3X3",
+            title = "9-Piece Image Puzzle",
+            description = "Reassemble the jumbled 3x3 image puzzle within 30 seconds to awaken your focus.",
+            category = InterventionCategory.COGNITIVE,
+            validationType = ValidationType.INTERACTION_VALIDATED,
+            iconEmoji = "🧩",
+            calmPrompt = "Reassemble the 9-piece image puzzle in 30s.",
+            instructions = "Tap two pieces to swap them. Match numbers 1 through 9 before the 30s timer runs out.",
+            defaultReps = 1,
+            defaultDurationSeconds = 30,
+            rewardSeconds = 600
+        ),
+        InterventionDefinition(
             id = "SIMPLE_MATH",
             title = "30s Mental Math Sprint",
             description = "Solve arithmetic equations over 30 seconds to awaken your prefrontal cortex.",

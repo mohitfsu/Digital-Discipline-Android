@@ -1137,6 +1137,7 @@ private fun CognitiveChallengeCard(
             Spacer(modifier = Modifier.height(14.dp))
 
             when (intervention.id) {
+                "IMAGE_PUZZLE_3X3" -> ImageTilePuzzleGame(onSuccess = onSuccess)
                 "ZEN_ENSO_CANVAS" -> ZenCanvasEnsoGame(onSuccess = onSuccess)
                 "SCAVENGER_HUNT" -> RealWorldScavengerGame(onSuccess = onSuccess)
                 "HAND_MUDRA_DEXTERITY" -> HandMudraDexterityGame(onSuccess = onSuccess)
@@ -1154,7 +1155,7 @@ private fun CognitiveChallengeCard(
                 "TAP_SEQUENCE" -> TapSequenceGame(onSuccess = onSuccess)
                 "REACTION_TEST" -> ReactionTestGame(onSuccess = onSuccess)
                 "QUICK_RECALL" -> QuickRecallGame(onSuccess = onSuccess)
-                else -> StroopChallengeGame(onSuccess = onSuccess)
+                else -> ImageTilePuzzleGame(onSuccess = onSuccess)
             }
         }
     }
