@@ -19,6 +19,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
@@ -427,6 +428,9 @@ fun CameraPoseWorkoutScreen(
             }
         }
 
+        val placementGuide = remember(exerciseId) { getPhonePlacementGuide(exerciseId) }
+        var showPlacementGuide by remember { mutableStateOf(true) }
+
         // =========================================================================
         // 4. LIVE COACHING & FEEDBACK BANNER
         // =========================================================================
@@ -451,6 +455,108 @@ fun CameraPoseWorkoutScreen(
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold
                 )
+            }
+        }
+
+        // =========================================================================
+        // 4B. PHONE CAMERA SETUP & ALIGNMENT ILLUSTRATION GUIDE
+        // =========================================================================
+        if (showPlacementGuide) {
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = Color(0xFF0F172A).copy(alpha = 0.95f),
+                border = BorderStroke(1.5.dp, Color(0xFF38BDF8)),
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .statusBarsPadding()
+                    .padding(top = 126.dp, start = 16.dp, end = 16.dp)
+                    .fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(placementGuide.iconEmoji, fontSize = 20.sp)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "CAMERA SETUP & ALIGNMENT GUIDE",
+                                color = Color(0xFF38BDF8),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Black,
+                                letterSpacing = 0.8.sp
+                            )
+                        }
+                        Surface(
+                            shape = CircleShape,
+                            color = Color(0xFF1E293B),
+                            modifier = Modifier
+                                .size(24.dp)
+                                .clickable { showPlacementGuide = false }
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text("✕", color = Color(0xFF94A3B8), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Step 1: Placement & Distance
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color(0xFF1E293B))
+                            .padding(horizontal = 10.dp, vertical = 7.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(placementGuide.phonePlacement, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                        Text(placementGuide.distance, color = Color(0xFF38BDF8), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    // Step 2: What must be visible
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color(0xFF1E293B))
+                            .padding(horizontal = 10.dp, vertical = 7.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("👁️ ", fontSize = 12.sp)
+                        Text(
+                            text = placementGuide.whatMustBeVisible,
+                            color = Color(0xFFE2E8F0),
+                            fontSize = 11.sp,
+                            lineHeight = 15.sp
+                        )
+                    }
+                }
+            }
+        } else {
+            // Minimized Setup Hint Button
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = Color(0xFF0F172A).copy(alpha = 0.85f),
+                border = BorderStroke(1.dp, Color(0xFF334155)),
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .statusBarsPadding()
+                    .padding(top = 126.dp, end = 16.dp)
+                    .clickable { showPlacementGuide = true }
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("📱 Setup Guide", color = Color(0xFF38BDF8), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
             }
         }
 
@@ -519,5 +625,75 @@ fun CameraPoseWorkoutScreen(
                 )
             }
         }
+    }
+}
+
+data class PhonePlacementGuide(
+    val title: String,
+    val phonePlacement: String,
+    val cameraAngle: String,
+    val distance: String,
+    val whatMustBeVisible: String,
+    val iconEmoji: String
+)
+
+fun getPhonePlacementGuide(exerciseId: String): PhonePlacementGuide {
+    return when (exerciseId.uppercase()) {
+        "CALF_RAISES", "CALF_RAISE" -> PhonePlacementGuide(
+            title = "Calf Raises Setup",
+            phonePlacement = "📱 Floor (propped against wall)",
+            cameraAngle = "📐 Tilted up towards lower legs",
+            distance = "📏 3 to 5 ft away",
+            whatMustBeVisible = "Feet, ankles, and calves must be clearly in frame",
+            iconEmoji = "🦶"
+        )
+        "PUSH_UPS", "PUSHUPS" -> PhonePlacementGuide(
+            title = "Push-ups Setup",
+            phonePlacement = "📱 Floor (propped at 45°)",
+            cameraAngle = "📐 Side profile view",
+            distance = "📏 4 to 6 ft away",
+            whatMustBeVisible = "Full horizontal body (head, chest, hips) in frame",
+            iconEmoji = "💪"
+        )
+        "SQUATS", "BODYWEIGHT_SQUATS", "LUNGES", "ALTERNATING_LUNGES" -> PhonePlacementGuide(
+            title = "Squats / Lunges Setup",
+            phonePlacement = "📱 Table or chair (waist height)",
+            cameraAngle = "📐 Straight forward angle",
+            distance = "📏 6 to 8 ft away",
+            whatMustBeVisible = "Full body (head to shoes) visible while standing and bending",
+            iconEmoji = "🏋️"
+        )
+        "WALL_SIT", "WALLSIT" -> PhonePlacementGuide(
+            title = "Wall Sit Setup",
+            phonePlacement = "📱 Chair or floor facing wall",
+            cameraAngle = "📐 Side angle showing wall contact",
+            distance = "📏 5 to 7 ft away",
+            whatMustBeVisible = "Side view of back against wall and 90° bent knees",
+            iconEmoji = "🧱"
+        )
+        "PLANK", "CORE_PLANK" -> PhonePlacementGuide(
+            title = "Plank Hold Setup",
+            phonePlacement = "📱 Floor (propped on mat)",
+            cameraAngle = "📐 Side horizontal view",
+            distance = "📏 4 to 6 ft away",
+            whatMustBeVisible = "Straight horizontal line from head to heels",
+            iconEmoji = "🧘"
+        )
+        "JUMPING_JACKS", "HIGH_KNEES", "BURPEES" -> PhonePlacementGuide(
+            title = "Cardio Sprint Setup",
+            phonePlacement = "📱 Table or shelf (chest height)",
+            cameraAngle = "📐 Level horizontal",
+            distance = "📏 7 to 9 ft away",
+            whatMustBeVisible = "Full body from head to feet with overhead jumping clearance",
+            iconEmoji = "⚡"
+        )
+        else -> PhonePlacementGuide(
+            title = "Camera Alignment Setup",
+            phonePlacement = "📱 Table or level surface",
+            cameraAngle = "📐 Straight facing you",
+            distance = "📏 6 to 8 ft away",
+            whatMustBeVisible = "Full body clearly framed in camera view",
+            iconEmoji = "🧍"
+        )
     }
 }

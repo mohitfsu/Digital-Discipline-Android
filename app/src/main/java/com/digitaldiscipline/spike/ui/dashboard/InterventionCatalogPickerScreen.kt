@@ -467,8 +467,6 @@ fun InterventionCatalogPickerScreen(
                         }
                     }
                 }
-            }
-
             Spacer(modifier = Modifier.height(24.dp))
         }
     }
@@ -478,91 +476,109 @@ fun InterventionCatalogPickerScreen(
     // ─────────────────────────────────────────────────────────────────────────
     val activeChallenge = activeDemoChallenge
     if (activeChallenge != null) {
+        val isCameraWorkout = isCameraWorkoutChallenge(activeChallenge)
+
+        LaunchedEffect(activeChallenge) {
+            if (isCameraWorkout && !hasCameraPermission) {
+                cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+            }
+        }
+
         Dialog(
             onDismissRequest = { activeDemoChallenge = null },
             properties = DialogProperties(usePlatformDefaultWidth = false)
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color(0xFF090D16).copy(alpha = 0.96f))
-                    .padding(16.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .border(1.dp, Color(0xFF38BDF8), RoundedCornerShape(20.dp)),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
-                    shape = RoundedCornerShape(20.dp)
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .padding(16.dp)
-                            .verticalScroll(rememberScrollState()),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        // Modal Header
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column {
-                                Text(
-                                    text = "🎯 LIVE DEMO TEST",
-                                    color = Color(0xFF38BDF8),
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Black,
-                                    letterSpacing = 1.sp
-                                )
-                                Text(
-                                    text = activeChallenge.title,
-                                    color = Color.White,
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                            IconButton(onClick = { activeDemoChallenge = null }) {
-                                Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
-                            }
+            if (isCameraWorkout && hasCameraPermission) {
+                // Fullscreen Live AI Camera Tracking Studio
+                CameraPoseWorkoutScreen(
+                    exerciseId = activeChallenge.id,
+                    exerciseTitle = activeChallenge.title,
+                    targetReps = if (activeChallenge.defaultReps > 0) activeChallenge.defaultReps else 10,
+                    targetHoldSeconds = if (activeChallenge.defaultDurationSeconds > 0) activeChallenge.defaultDurationSeconds else 30,
+                    onComplete = {
+                        demoCompletedSuccess = true
+                        selectedIds = selectedIds + activeChallenge.id
+                        coroutineScope.launch {
+                            preferencesManager.setEnabledInterventions(selectedIds)
+                            Toast.makeText(context, "🎉 ${activeChallenge.title} Completed & Added to Plan!", Toast.LENGTH_SHORT).show()
                         }
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        // Challenge Runner Container
-                        when {
-                            // Camera AI Skeletal Tracking for Movement & Posture Exercises
-                            activeChallenge.validationType == ValidationType.CAMERA_VALIDATED && activeChallenge.id != "SCAVENGER_HUNT" -> {
-                                if (hasCameraPermission) {
-                                    CameraPoseWorkoutScreen(
-                                        exerciseId = activeChallenge.id,
-                                        exerciseTitle = activeChallenge.title,
-                                        targetReps = if (activeChallenge.defaultReps > 0) activeChallenge.defaultReps else 10,
-                                        targetHoldSeconds = if (activeChallenge.defaultDurationSeconds > 0) activeChallenge.defaultDurationSeconds else 30,
-                                        onComplete = {
-                                            demoCompletedSuccess = true
-                                        },
-                                        onDismiss = { activeDemoChallenge = null }
+                        activeDemoChallenge = null
+                    },
+                    onDismiss = { activeDemoChallenge = null }
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color(0xFF090D16).copy(alpha = 0.96f))
+                        .padding(16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(1.dp, Color(0xFF38BDF8), RoundedCornerShape(20.dp)),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+                        shape = RoundedCornerShape(20.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .padding(16.dp)
+                                .verticalScroll(rememberScrollState()),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            // Modal Header
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column {
+                                    Text(
+                                        text = "🎯 LIVE DEMO TEST",
+                                        color = Color(0xFF38BDF8),
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Black,
+                                        letterSpacing = 1.sp
                                     )
-                                } else {
+                                    Text(
+                                        text = activeChallenge.title,
+                                        color = Color.White,
+                                        fontSize = 15.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                                IconButton(onClick = { activeDemoChallenge = null }) {
+                                    Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            // Challenge Runner Container
+                            when {
+                                isCameraWorkout -> {
                                     Column(
                                         modifier = Modifier.fillMaxWidth().padding(16.dp),
                                         horizontalAlignment = Alignment.CenterHorizontally
                                     ) {
-                                        Text("📷 Camera Permission Required", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                                        Text("📷 Camera Permission Needed", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                                         Spacer(modifier = Modifier.height(8.dp))
-                                        Text("Camera is needed for live skeletal rep counting and form tracking.", color = Color(0xFF94A3B8), fontSize = 12.sp, textAlign = TextAlign.Center)
+                                        Text(
+                                            text = "Camera access is needed for live AI pose tracking & rep counting for ${activeChallenge.title}.",
+                                            color = Color(0xFF94A3B8),
+                                            fontSize = 12.sp,
+                                            textAlign = TextAlign.Center
+                                        )
                                         Spacer(modifier = Modifier.height(16.dp))
                                         Button(
                                             onClick = { cameraPermissionLauncher.launch(Manifest.permission.CAMERA) },
                                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF38BDF8))
                                         ) {
-                                            Text("GRANT CAMERA ACCESS", color = Color(0xFF0F172A), fontWeight = FontWeight.Bold)
+                                            Text("ENABLE CAMERA NOW", color = Color(0xFF0F172A), fontWeight = FontWeight.Bold)
                                         }
                                     }
                                 }
-                            }
 
                             // Interactive Games & Cognitive Puzzles
                             activeChallenge.id == "IMAGE_PUZZLE_3X3" -> {
@@ -691,6 +707,8 @@ fun InterventionCatalogPickerScreen(
         }
     }
 }
+}
+}
 
 @Composable
 private fun MindfulBreathingDemoRunner(
@@ -779,4 +797,19 @@ private fun formatCategoryTitle(category: InterventionCategory): String {
         InterventionCategory.CREATIVE_FLOW -> "Creative Flow & Expression"
         InterventionCategory.MINDFUL_PERSPECTIVE -> "Mindful Perspective & Audio"
     }
+}
+
+private fun isCameraWorkoutChallenge(item: InterventionDefinition): Boolean {
+    if (item.id == "SCAVENGER_HUNT") return false
+    return item.category == InterventionCategory.MOVEMENT ||
+           item.category == InterventionCategory.UPPER_BODY ||
+           item.category == InterventionCategory.YOGA_MOBILITY ||
+           item.validationType == ValidationType.CAMERA_VALIDATED ||
+           item.validationType == ValidationType.SENSOR_VALIDATED ||
+           item.id in setOf(
+               "PUSH_UPS", "SQUATS", "WALL_SIT", "PLANK", "CALF_RAISES", "JUMPING_JACKS",
+               "LUNGES", "HIGH_KNEES", "BURPEES", "MOUNTAIN_CLIMBERS", "SIT_TO_STAND",
+               "YOGA_TREE", "YOGA_WARRIOR", "YOGA_CHAIR", "YOGA_DOWNWARD_DOG",
+               "NECK_SHOULDER_ROLLS", "WRIST_FINGER_STRETCH"
+           )
 }

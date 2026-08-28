@@ -130,6 +130,15 @@ fun ChildDashboardScreen(
         }
     }
 
+    LaunchedEffect(activeChallengeItem) {
+        val challenge = activeChallengeItem
+        if (challenge != null && (challenge.category == InterventionCategory.MOVEMENT || challenge.category == InterventionCategory.UPPER_BODY || challenge.category == InterventionCategory.YOGA_MOBILITY)) {
+            if (!hasCameraPermission) {
+                cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+            }
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -619,7 +628,7 @@ fun ChildDashboardScreen(
                                     }
                                 )
                             }
-                            activeChallenge.category == InterventionCategory.MOVEMENT -> {
+                            activeChallenge.category == InterventionCategory.MOVEMENT || activeChallenge.category == InterventionCategory.UPPER_BODY || activeChallenge.category == InterventionCategory.YOGA_MOBILITY -> {
                                 if (hasCameraPermission) {
                                     CameraPoseWorkoutScreen(
                                         exerciseId = activeChallenge.id,
