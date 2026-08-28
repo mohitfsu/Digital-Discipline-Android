@@ -74,6 +74,14 @@ fun TodayScreen(
     // Intervention Catalog Preferences
     val enabledInterventionIds by preferencesManager.enabledInterventionsFlow.collectAsState(initial = emptySet())
     val enabledCategories by preferencesManager.enabledCategoriesFlow.collectAsState(initial = emptySet())
+    val hasConfiguredChallenges by preferencesManager.hasConfiguredChallengesFlow.collectAsState(initial = true)
+    var showInitialCatalogDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(hasConfiguredChallenges) {
+        if (!hasConfiguredChallenges) {
+            showInitialCatalogDialog = true
+        }
+    }
 
     // First Win State
     val firstWinState by preferencesManager.firstWinStateFlow.collectAsState(initial = "NOT_STARTED")
@@ -713,6 +721,145 @@ fun TodayScreen(
                 onCancel = {
                     activeDailyActionItem = null
                 }
+            )
+        }
+
+        // Active Friction Catalog Initial Setup Popup Dialog
+        if (showInitialCatalogDialog) {
+            AlertDialog(
+                onDismissRequest = {
+                    coroutineScope.launch {
+                        preferencesManager.setHasConfiguredChallenges(true)
+                    }
+                    showInitialCatalogDialog = false
+                },
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("🎯", fontSize = 22.sp)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Choose Your Active Friction",
+                            color = Color.White,
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text(
+                            text = "Digital Discipline interrupts doomscrolling with purposeful friction. Choose the challenge style you want active:",
+                            color = Color(0xFF94A3B8),
+                            fontSize = 12.sp,
+                            lineHeight = 17.sp
+                        )
+
+                        // Preset 1: Mind & Word Games
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = Color(0xFF0284C7).copy(alpha = 0.2f),
+                            border = BorderStroke(1.dp, Color(0xFF38BDF8)),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    coroutineScope.launch {
+                                        val ids = setOf("IMAGE_PUZZLE_3X3", "HANGMAN_CLASSIC", "MATH_SPRINT", "MEMORY_MATRIX", "STROOP_TEST")
+                                        preferencesManager.setEnabledInterventions(ids)
+                                        preferencesManager.setHasConfiguredChallenges(true)
+                                    }
+                                    showInitialCatalogDialog = false
+                                }
+                        ) {
+                            Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text("🧩", fontSize = 22.sp)
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column {
+                                    Text("Brain & Word Games (Recommended)", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                    Text("3x3 Picture Puzzle, Hangman, Math Sprint & Memory Matrix", color = Color(0xFF94A3B8), fontSize = 11.sp)
+                                }
+                            }
+                        }
+
+                        // Preset 2: Physical Movement & Fitness
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = Color(0xFF10B981).copy(alpha = 0.2f),
+                            border = BorderStroke(1.dp, Color(0xFF10B981)),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    coroutineScope.launch {
+                                        val ids = setOf("SQUATS", "CALF_RAISES", "PUSH_UPS", "JUMPING_JACKS", "PLANK")
+                                        preferencesManager.setEnabledInterventions(ids)
+                                        preferencesManager.setHasConfiguredChallenges(true)
+                                    }
+                                    showInitialCatalogDialog = false
+                                }
+                        ) {
+                            Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text("💪", fontSize = 22.sp)
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column {
+                                    Text("Movement & Posture Sprint", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                    Text("Squats, Calf Raises, Push-ups with AI camera form counting", color = Color(0xFF94A3B8), fontSize = 11.sp)
+                                }
+                            }
+                        }
+
+                        // Preset 3: Deep Calm & Breathing
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = Color(0xFF8B5CF6).copy(alpha = 0.2f),
+                            border = BorderStroke(1.dp, Color(0xFF8B5CF6)),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    coroutineScope.launch {
+                                        val ids = setOf("BOX_BREATHING", "4_7_8_BREATHING", "MEDITATION", "STOIC_TAROT_DECIDER", "ZEN_ENSO_CANVAS")
+                                        preferencesManager.setEnabledInterventions(ids)
+                                        preferencesManager.setHasConfiguredChallenges(true)
+                                    }
+                                    showInitialCatalogDialog = false
+                                }
+                        ) {
+                            Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text("🫁", fontSize = 22.sp)
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column {
+                                    Text("Calm & Mindful Reset", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                    Text("Box Breathing, 4-7-8 Breathing, Zen Canvas & Stoic Tarot", color = Color(0xFF94A3B8), fontSize = 11.sp)
+                                }
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            coroutineScope.launch {
+                                preferencesManager.setHasConfiguredChallenges(true)
+                            }
+                            showInitialCatalogDialog = false
+                            onNavigateToInterventions()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF38BDF8))
+                    ) {
+                        Text("🎨 Browse All 50 Challenges", color = Color(0xFF0F172A), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = {
+                            coroutineScope.launch {
+                                preferencesManager.setHasConfiguredChallenges(true)
+                            }
+                            showInitialCatalogDialog = false
+                        }
+                    ) {
+                        Text("Keep All Active", color = Color(0xFF94A3B8), fontSize = 12.sp)
+                    }
+                },
+                containerColor = Color(0xFF0F172A)
             )
         }
     }

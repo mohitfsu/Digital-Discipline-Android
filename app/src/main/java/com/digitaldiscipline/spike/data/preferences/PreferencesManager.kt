@@ -91,6 +91,7 @@ open class PreferencesManager(private val context: Context? = null) {
         val KEY_OFFICE_DEEP_WORK_ACTIVE = booleanPreferencesKey("office_deep_work_active")
         val KEY_OFFICE_DEEP_WORK_EXPIRY = longPreferencesKey("office_deep_work_expiry")
         val KEY_OFFICE_MEETING_MODE = booleanPreferencesKey("office_meeting_mode")
+        val KEY_HAS_CONFIGURED_CHALLENGES = booleanPreferencesKey("has_configured_challenges")
     }
 
     val lastReflectionDateFlow: Flow<String?> = (context?.dataStore?.data ?: kotlinx.coroutines.flow.flowOf(emptyPreferences()))
@@ -450,6 +451,14 @@ open class PreferencesManager(private val context: Context? = null) {
 
     open suspend fun setEnabledCategories(categories: Set<String>) {
         context?.dataStore?.edit { it[KEY_ENABLED_CATEGORIES] = categories }
+    }
+
+    val hasConfiguredChallengesFlow: Flow<Boolean> = (context?.dataStore?.data ?: kotlinx.coroutines.flow.flowOf(emptyPreferences()))
+        .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
+        .map { it[KEY_HAS_CONFIGURED_CHALLENGES] ?: false }
+
+    open suspend fun setHasConfiguredChallenges(configured: Boolean) {
+        context?.dataStore?.edit { it[KEY_HAS_CONFIGURED_CHALLENGES] = configured }
     }
 
     // -------------------------------------------------------------------------

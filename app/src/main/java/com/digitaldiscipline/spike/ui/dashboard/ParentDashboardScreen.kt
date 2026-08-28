@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.digitaldiscipline.spike.analytics.LocalAnalyticsRepository
 import com.digitaldiscipline.spike.data.local.entities.AppRuleEntity
+import com.digitaldiscipline.spike.intervention.catalog.InterventionCatalog
 import com.digitaldiscipline.spike.data.local.entities.RuleMode
 import com.digitaldiscipline.spike.data.preferences.PreferencesManager
 import com.digitaldiscipline.spike.policy.PolicyEngine
@@ -94,6 +95,8 @@ fun ParentDashboardScreen(
     var setPinError by remember { mutableStateOf<String?>(null) }
     var showAddCustomAppDialog by remember { mutableStateOf(false) }
     var showDiagnosticLogDialog by remember { mutableStateOf(false) }
+    val enabledInterventionIds by preferencesManager.enabledInterventionsFlow.collectAsState(initial = emptySet())
+    var showChallengeCatalogDialog by remember { mutableStateOf(false) }
 
     // Summary calculation
     val totalBlocks = todayUsageList.sumOf { it.blockCount }
@@ -321,6 +324,59 @@ fun ParentDashboardScreen(
                         },
                         colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFF10B981), checkedTrackColor = Color(0xFF059669))
                     )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // Child Friction & Challenge Catalog Card
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(1.dp, Color(0xFF38BDF8).copy(alpha = 0.5f), RoundedCornerShape(14.dp)),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+            shape = RoundedCornerShape(14.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text("🎯 ACTIVE FRICTION CATALOG", color = Color(0xFF38BDF8), fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                        Text("Earned Screen Time Challenges", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                    }
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = Color(0xFF38BDF8).copy(alpha = 0.2f)
+                    ) {
+                        Text("${if (enabledInterventionIds.isEmpty()) 50 else enabledInterventionIds.size} Active", color = Color(0xFF38BDF8), fontSize = 9.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = "Select which mindful puzzles, exercises, and games appear when child earns screen time.",
+                    color = Color(0xFF94A3B8),
+                    fontSize = 11.sp,
+                    lineHeight = 16.sp
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Button(
+                    onClick = {
+                        showPinDialogForAction = {
+                            showChallengeCatalogDialog = true
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF38BDF8)),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.fillMaxWidth().height(38.dp)
+                ) {
+                    Text("⚙️ CONFIGURE ACTIVE CHALLENGES", color = Color(0xFF0F172A), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -1581,6 +1637,121 @@ fun ParentDashboardScreen(
             dismissButton = {
                 TextButton(onClick = { showAddCustomAppDialog = false }) {
                     Text("Cancel")
+                }
+            },
+            containerColor = Color(0xFF0F172A)
+        )
+    }
+
+    // Configure Child Challenge Catalog Dialog
+    if (showChallengeCatalogDialog) {
+        AlertDialog(
+            onDismissRequest = { showChallengeCatalogDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("🎯", fontSize = 22.sp)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Configure Child Challenges", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = "Choose which challenges and games are available when child earns screen time:",
+                        color = Color(0xFF94A3B8),
+                        fontSize = 12.sp
+                    )
+
+                    // Preset 1: Mind & Word Games
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = Color(0xFF0284C7).copy(alpha = 0.2f),
+                        border = BorderStroke(1.dp, Color(0xFF38BDF8)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                coroutineScope.launch {
+                                    val ids = setOf("IMAGE_PUZZLE_3X3", "HANGMAN_CLASSIC", "MATH_SPRINT", "MEMORY_MATRIX", "STROOP_TEST")
+                                    preferencesManager.setEnabledInterventions(ids)
+                                    Toast.makeText(context, "Saved Brain & Word Games preset for child!", Toast.LENGTH_SHORT).show()
+                                }
+                                showChallengeCatalogDialog = false
+                            }
+                    ) {
+                        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text("🧩", fontSize = 22.sp)
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text("Puzzles & Word Games Only", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                Text("3x3 Picture Puzzle, Hangman, Math Sprint & Memory Matrix", color = Color(0xFF94A3B8), fontSize = 11.sp)
+                            }
+                        }
+                    }
+
+                    // Preset 2: Physical Movement & Posture
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = Color(0xFF10B981).copy(alpha = 0.2f),
+                        border = BorderStroke(1.dp, Color(0xFF10B981)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                coroutineScope.launch {
+                                    val ids = setOf("SQUATS", "CALF_RAISES", "PUSH_UPS", "JUMPING_JACKS", "PLANK")
+                                    preferencesManager.setEnabledInterventions(ids)
+                                    Toast.makeText(context, "Saved Fitness & Movement preset for child!", Toast.LENGTH_SHORT).show()
+                                }
+                                showChallengeCatalogDialog = false
+                            }
+                    ) {
+                        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text("💪", fontSize = 22.sp)
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text("Fitness & Movement Sprints", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                Text("Squats, Calf Raises, Push-ups with AI camera form counting", color = Color(0xFF94A3B8), fontSize = 11.sp)
+                            }
+                        }
+                    }
+
+                    // Preset 3: All 50 Challenges
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = Color(0xFF8B5CF6).copy(alpha = 0.2f),
+                        border = BorderStroke(1.dp, Color(0xFF8B5CF6)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                coroutineScope.launch {
+                                    val allIds = InterventionCatalog.getAllInterventions().map { it.id }.toSet()
+                                    preferencesManager.setEnabledInterventions(allIds)
+                                    Toast.makeText(context, "Enabled all 50 challenges for child!", Toast.LENGTH_SHORT).show()
+                                }
+                                showChallengeCatalogDialog = false
+                            }
+                    ) {
+                        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text("🌟", fontSize = 22.sp)
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text("All 50 Challenges Allowed", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                Text("Full catalog: puzzles, fitness, breathwork & creative", color = Color(0xFF94A3B8), fontSize = 11.sp)
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showChallengeCatalogDialog = false },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF38BDF8))
+                ) {
+                    Text("Done", color = Color(0xFF0F172A), fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showChallengeCatalogDialog = false }) {
+                    Text("Cancel", color = Color(0xFF94A3B8))
                 }
             },
             containerColor = Color(0xFF0F172A)

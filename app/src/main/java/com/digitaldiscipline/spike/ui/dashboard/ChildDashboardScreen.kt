@@ -95,6 +95,15 @@ fun ChildDashboardScreen(
     var enteredPin by remember { mutableStateOf("") }
     var pinError by remember { mutableStateOf<String?>(null) }
 
+    val hasConfiguredChallenges by preferencesManager.hasConfiguredChallengesFlow.collectAsState(initial = true)
+    var showChildCatalogSetupDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(hasConfiguredChallenges) {
+        if (!hasConfiguredChallenges) {
+            showChildCatalogSetupDialog = true
+        }
+    }
+
     // Interactive "Earn Screen Time Now" Studio Dialog
     var showEarnStudioDialog by remember { mutableStateOf(false) }
     var activeChallengeItem by remember { mutableStateOf<InterventionDefinition?>(null) }
@@ -732,6 +741,141 @@ fun ChildDashboardScreen(
             dismissButton = {
                 TextButton(onClick = { showPinDialog = false }) {
                     Text("Cancel", color = Color(0xFF94A3B8))
+                }
+            },
+            containerColor = Color(0xFF0F172A)
+        )
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // CHILD FAVORITE CHALLENGE SETUP POPUP DIALOG
+    // ─────────────────────────────────────────────────────────────────────────
+    if (showChildCatalogSetupDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                coroutineScope.launch {
+                    preferencesManager.setHasConfiguredChallenges(true)
+                }
+                showChildCatalogSetupDialog = false
+            },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("🎮", fontSize = 22.sp)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Pick Your Favorite Challenges!", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = "Whenever you want screen time, which challenges do you want to play to earn +5 minutes?",
+                        color = Color(0xFF94A3B8),
+                        fontSize = 12.sp
+                    )
+
+                    // Option 1: Puzzles & Word Games
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = Color(0xFF0284C7).copy(alpha = 0.2f),
+                        border = BorderStroke(1.dp, Color(0xFF38BDF8)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                coroutineScope.launch {
+                                    val ids = setOf("IMAGE_PUZZLE_3X3", "HANGMAN_CLASSIC", "MATH_SPRINT", "MEMORY_MATRIX")
+                                    preferencesManager.setEnabledInterventions(ids)
+                                    preferencesManager.setHasConfiguredChallenges(true)
+                                }
+                                showChildCatalogSetupDialog = false
+                            }
+                    ) {
+                        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text("🧩", fontSize = 22.sp)
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text("Puzzles & Word Games", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                Text("Picture Puzzle, Hangman Word Guess & Math Sprint", color = Color(0xFF94A3B8), fontSize = 11.sp)
+                            }
+                        }
+                    }
+
+                    // Option 2: Active Fitness & Jumps
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = Color(0xFF10B981).copy(alpha = 0.2f),
+                        border = BorderStroke(1.dp, Color(0xFF10B981)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                coroutineScope.launch {
+                                    val ids = setOf("SQUATS", "CALF_RAISES", "JUMPING_JACKS", "PLANK")
+                                    preferencesManager.setEnabledInterventions(ids)
+                                    preferencesManager.setHasConfiguredChallenges(true)
+                                }
+                                showChildCatalogSetupDialog = false
+                            }
+                    ) {
+                        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text("⚡", fontSize = 22.sp)
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text("Fun Fitness & Movement", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                Text("Jumping Jacks, Squats & Calf Raises with camera", color = Color(0xFF94A3B8), fontSize = 11.sp)
+                            }
+                        }
+                    }
+
+                    // Option 3: Everything
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = Color(0xFF8B5CF6).copy(alpha = 0.2f),
+                        border = BorderStroke(1.dp, Color(0xFF8B5CF6)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                coroutineScope.launch {
+                                    val ids = setOf("IMAGE_PUZZLE_3X3", "HANGMAN_CLASSIC", "SCAVENGER_HUNT", "SQUATS", "CALF_RAISES", "MATH_SPRINT")
+                                    preferencesManager.setEnabledInterventions(ids)
+                                    preferencesManager.setHasConfiguredChallenges(true)
+                                }
+                                showChildCatalogSetupDialog = false
+                            }
+                    ) {
+                        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text("🌟", fontSize = 22.sp)
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text("All-in-One Adventure Mix", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                Text("Scavenger Hunt, Hangman, Puzzles & Workouts", color = Color(0xFF94A3B8), fontSize = 11.sp)
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        coroutineScope.launch {
+                            preferencesManager.setHasConfiguredChallenges(true)
+                        }
+                        showChildCatalogSetupDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981))
+                ) {
+                    Text("START EARNING TIME", fontWeight = FontWeight.Black, fontSize = 12.sp)
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        coroutineScope.launch {
+                            preferencesManager.setHasConfiguredChallenges(true)
+                        }
+                        showChildCatalogSetupDialog = false
+                        showEarnStudioDialog = true
+                    }
+                ) {
+                    Text("Browse Studio", color = Color(0xFF38BDF8), fontSize = 12.sp)
                 }
             },
             containerColor = Color(0xFF0F172A)
