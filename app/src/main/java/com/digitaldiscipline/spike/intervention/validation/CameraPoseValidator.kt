@@ -54,7 +54,7 @@ class CameraPoseValidator(
      * Feeds an incoming real-time pose into the validator state machine.
      * Evaluates classifier regardless of whether activeSession is attached or in standalone preview.
      */
-    fun onPoseReceived(pose: Pose): PoseClassificationResult? {
+    fun onPoseReceived(pose: Pose, isCountingActive: Boolean = true): PoseClassificationResult? {
         if (isTerminated) {
             return null
         }
@@ -74,7 +74,7 @@ class CameraPoseValidator(
             }
         }
 
-        val result = classifier.processPose(pose)
+        val result = classifier.processPose(pose, isCountingActive)
 
         if (session != null) {
             if (result.isCompleted) {
@@ -94,11 +94,10 @@ class CameraPoseValidator(
         return result
     }
 
-    fun onUserCancelled(reason: String = "User cancelled camera workout") {
-        val session = activeSession
-        val cb = callback
+    fun onUserCancelled(reason: String = "User cancelled exercise") {
+        activeSession?.cancel()
+        val currentCallback = callback
         stopValidation()
-        session?.cancel(reason)
-        cb?.invoke(ValidationResult.Failed(reason))
+        currentCallback?.invoke(ValidationResult.Failed(reason))
     }
 }

@@ -72,7 +72,7 @@ enum class WorkoutStage {
 fun CameraPoseWorkoutScreen(
     exerciseId: String = "PUSH_UPS",
     exerciseTitle: String = "Push-ups",
-    targetReps: Int = 15,
+    targetReps: Int = 10,
     targetHoldSeconds: Int = 30,
     session: InterventionSession? = null,
     rewardMinutes: Int = (session?.rewardSeconds ?: 600) / 60,
@@ -171,31 +171,26 @@ fun CameraPoseWorkoutScreen(
         )
     }
 
-    // 1-2-3-GO Countdown State Machine
-    var isCountingDown by remember { mutableStateOf(false) }
+    // Robust 1-2-3-GO Sequence (Uninterrupted once triggered)
+    var triggerCountdown by remember { mutableStateOf(false) }
     LaunchedEffect(classificationResult.isReadyToStart, workoutStage) {
-        if (workoutStage == WorkoutStage.POSITIONING && classificationResult.isReadyToStart && !isCountingDown) {
-            isCountingDown = true
+        if (workoutStage == WorkoutStage.POSITIONING && classificationResult.isReadyToStart && !triggerCountdown) {
+            triggerCountdown = true
+        }
+    }
+
+    LaunchedEffect(triggerCountdown) {
+        if (triggerCountdown && workoutStage == WorkoutStage.POSITIONING) {
             workoutStage = WorkoutStage.COUNTDOWN_3
-            delay(900L)
-            if (!classificationResult.isPostureCorrect && !classificationResult.isReadyToStart) {
-                workoutStage = WorkoutStage.POSITIONING
-                isCountingDown = false
-                return@LaunchedEffect
-            }
+            delay(1000L)
             workoutStage = WorkoutStage.COUNTDOWN_2
-            delay(900L)
-            if (!classificationResult.isPostureCorrect && !classificationResult.isReadyToStart) {
-                workoutStage = WorkoutStage.POSITIONING
-                isCountingDown = false
-                return@LaunchedEffect
-            }
+            delay(1000L)
             workoutStage = WorkoutStage.COUNTDOWN_1
-            delay(900L)
+            delay(1000L)
             workoutStage = WorkoutStage.COUNTDOWN_GO
             delay(600L)
             workoutStage = WorkoutStage.ACTIVE
-            isCountingDown = false
+            triggerCountdown = false
         }
     }
 
@@ -265,7 +260,9 @@ fun CameraPoseWorkoutScreen(
                                 imageHeight = h
                             }
 
-                            val result = cameraPoseValidator.onPoseReceived(pose)
+                            // Pass isCountingActive: Reps & Timers only increment AFTER "GO!"
+                            val isCountingActive = (workoutStage == WorkoutStage.ACTIVE)
+                            val result = cameraPoseValidator.onPoseReceived(pose, isCountingActive)
                             if (result != null) {
                                 classificationResult = result
                                 if (result.isCompleted) {
@@ -879,7 +876,7 @@ fun CameraPoseWorkoutScreen(
                                             activeExerciseId = id
                                             activeExerciseTitle = title.split(" ", limit = 2).getOrElse(1) { title }
                                             workoutStage = WorkoutStage.POSITIONING
-                                            isCountingDown = false
+                                            triggerCountdown = false
                                         }
                                     }
                             ) {
