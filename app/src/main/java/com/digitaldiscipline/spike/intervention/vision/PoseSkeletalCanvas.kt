@@ -23,6 +23,9 @@ fun PoseSkeletalCanvas(
     imageHeight: Int,
     isFrontCamera: Boolean = true,
     isActionActive: Boolean = false,
+    isPostureCorrect: Boolean = false,
+    exerciseId: String = "",
+    activeAngles: Map<String, Double> = emptyMap(),
     modifier: Modifier = Modifier
 ) {
     Canvas(modifier = modifier.fillMaxSize()) {
@@ -52,7 +55,7 @@ fun PoseSkeletalCanvas(
             return Offset(rawX, rawY)
         }
 
-        fun drawBone(p1: PoseLandmark?, p2: PoseLandmark?, color: Color, strokeWidth: Float = if (isActionActive) 8f else 5.5f) {
+        fun drawBone(p1: PoseLandmark?, p2: PoseLandmark?, color: Color, strokeWidth: Float = if (isActionActive || isPostureCorrect) 8f else 5.5f) {
             val o1 = transformPoint(p1)
             val o2 = transformPoint(p2)
             if (o1 != null && o2 != null) {
@@ -105,11 +108,32 @@ fun PoseSkeletalCanvas(
         val leftFootIndex = pose.getPoseLandmark(PoseLandmark.LEFT_FOOT_INDEX)
         val rightFootIndex = pose.getPoseLandmark(PoseLandmark.RIGHT_FOOT_INDEX)
 
-        // Color palettes based on action state
-        val wireframeColor = if (isActionActive) Color(0xFF10B981) else Color(0xFF0284C7)
-        val torsoColor = if (isActionActive) Color(0xFF34D399) else Color(0xFF38BDF8)
-        val limbColor = if (isActionActive) Color(0xFF6EE7B7) else Color(0xFF38BDF8)
-        val headColor = if (isActionActive) Color(0xFFA7F3D0) else Color(0xFF7DD3FC)
+        // Color palettes based on posture correctness state (Green when correct, Red/Amber when incorrect)
+        val torsoColor = when {
+            isPostureCorrect -> Color(0xFF22C55E) // Neon Green
+            isActionActive -> Color(0xFFF59E0B)   // Amber
+            else -> Color(0xFFEF4444)             // Bright Red
+        }
+        val limbColor = when {
+            isPostureCorrect -> Color(0xFF4ADE80)
+            isActionActive -> Color(0xFFFBBF24)
+            else -> Color(0xFFF87171)
+        }
+        val headColor = when {
+            isPostureCorrect -> Color(0xFF86EFAC)
+            isActionActive -> Color(0xFFFDE68A)
+            else -> Color(0xFFFCA5A5)
+        }
+        val glowColor = when {
+            isPostureCorrect -> Color(0xFF22C55E).copy(alpha = 0.75f)
+            isActionActive -> Color(0xFFF59E0B).copy(alpha = 0.75f)
+            else -> Color(0xFFEF4444).copy(alpha = 0.70f)
+        }
+        val beadColor = when {
+            isPostureCorrect -> Color(0xFFDCFCE7)
+            isActionActive -> Color(0xFFFEF3C7)
+            else -> Color(0xFFFEE2E2)
+        }
 
         // 1. Draw Head & Face (6 landmarks)
         drawBone(leftEye, nose, headColor)
@@ -190,16 +214,44 @@ fun PoseSkeletalCanvas(
         jointPoints.forEach { pt ->
             // Outer radiant glow circle
             drawCircle(
-                color = if (isActionActive) Color(0xFF10B981).copy(alpha = 0.65f) else Color(0xFF0284C7).copy(alpha = 0.55f),
-                radius = if (isActionActive) 13f else 10f,
+                color = glowColor,
+                radius = if (isPostureCorrect) 12f else 9f,
                 center = pt
             )
             // Solid center joint bead
             drawCircle(
-                color = if (isActionActive) Color(0xFFA7F3D0) else Color(0xFF67E8F9),
-                radius = if (isActionActive) 6.5f else 5f,
+                color = beadColor,
+                radius = if (isPostureCorrect) 6f else 4.5f,
                 center = pt
             )
+        }
+
+        // 8. Targeted Focal Joint Halos (Observe and point to primary exercise joints)
+        val focalLandmarks = when (exerciseId.uppercase()) {
+            "PUSH_UPS", "PUSHUPS" -> listOfNotNull(leftElbow, rightElbow, leftShoulder, rightShoulder)
+            "SQUATS", "BODYWEIGHT_SQUATS", "WALL_SIT" -> listOfNotNull(leftKnee, rightKnee, leftHip, rightHip)
+            "SIT_UPS", "SITUPS", "CRUNCHES", "CORE_SITUPS" -> listOfNotNull(leftShoulder, rightShoulder, leftHip, rightHip)
+            "CALF_RAISES", "CALF_RAISE", "CALF" -> listOfNotNull(leftAnkle, rightAnkle, leftHeel, rightHeel)
+            "PLANK", "CORE_PLANK" -> listOfNotNull(leftShoulder, rightShoulder, leftHip, rightHip, leftAnkle, rightAnkle)
+            "LUNGES", "ALTERNATING_LUNGES" -> listOfNotNull(leftKnee, rightKnee, leftHip, rightHip)
+            else -> emptyList()
+        }
+
+        focalLandmarks.forEach { landmark ->
+            val pt = transformPoint(landmark)
+            if (pt != null) {
+                // Large pulsing focal halo
+                drawCircle(
+                    color = if (isPostureCorrect) Color(0xFF22C55E).copy(alpha = 0.45f) else Color(0xFFEF4444).copy(alpha = 0.40f),
+                    radius = 24f,
+                    center = pt
+                )
+                drawCircle(
+                    color = if (isPostureCorrect) Color(0xFF86EFAC) else Color(0xFFFCA5A5),
+                    radius = 16f,
+                    center = pt
+                )
+            }
         }
     }
 }

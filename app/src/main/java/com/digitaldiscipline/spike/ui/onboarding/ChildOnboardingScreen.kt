@@ -999,6 +999,12 @@ fun ChildOnboardingScreen(
                                             Toast.makeText(context, "Workout completed with Camera AI!", Toast.LENGTH_SHORT).show()
                                             activeDemoIntervention = null
                                         },
+                                        onSwitchChallenge = { newChallengeId ->
+                                            val newDef = InterventionCatalog.getIntervention(newChallengeId)
+                                            if (newDef != null) {
+                                                activeDemoIntervention = newDef
+                                            }
+                                        },
                                         onDismiss = { activeDemoIntervention = null }
                                     )
                                 } else {

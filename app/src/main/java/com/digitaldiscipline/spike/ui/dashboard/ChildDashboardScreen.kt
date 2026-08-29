@@ -649,6 +649,12 @@ fun ChildDashboardScreen(
                                                 }
                                             }
                                         },
+                                        onSwitchChallenge = { newChallengeId ->
+                                            val newDef = InterventionCatalog.getIntervention(newChallengeId)
+                                            if (newDef != null) {
+                                                activeChallengeItem = newDef
+                                            }
+                                        },
                                         onDismiss = { activeChallengeItem = null }
                                     )
                                 } else {

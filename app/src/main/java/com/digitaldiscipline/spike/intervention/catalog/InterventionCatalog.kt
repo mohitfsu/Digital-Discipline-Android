@@ -37,6 +37,19 @@ object InterventionCatalog {
             rewardSeconds = 600
         ),
         InterventionDefinition(
+            id = "SIT_UPS",
+            title = "Core Sit-ups",
+            description = "Build core strength and mental focus with controlled sit-ups.",
+            category = InterventionCategory.MOVEMENT,
+            validationType = ValidationType.SENSOR_VALIDATED,
+            iconEmoji = "🤸",
+            calmPrompt = "Lie back and curl up with steady control.",
+            instructions = "Lie on your back with knees bent. Elevate torso up to your knees and lower down smoothly.",
+            defaultReps = 10,
+            defaultDurationSeconds = 0,
+            rewardSeconds = 600
+        ),
+        InterventionDefinition(
             id = "LUNGES",
             title = "Alternating Lunges",
             description = "Strengthen your legs and test balance with steady lunges.",

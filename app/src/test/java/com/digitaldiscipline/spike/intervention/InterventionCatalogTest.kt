@@ -12,12 +12,12 @@ class InterventionCatalogTest {
     @Test
     fun catalogContainsAll48Interventions() {
         val all = InterventionCatalog.getAllInterventions()
-        assertEquals(50, all.size)
+        assertEquals(51, all.size)
     }
 
     @Test
     fun verifyCategoryDistribution() {
-        assertEquals(11, InterventionCatalog.getByCategory(InterventionCategory.MOVEMENT).size)
+        assertEquals(12, InterventionCatalog.getByCategory(InterventionCategory.MOVEMENT).size)
         assertEquals(1, InterventionCatalog.getByCategory(InterventionCategory.UPPER_BODY).size)
         assertEquals(4, InterventionCatalog.getByCategory(InterventionCategory.BREATHING).size)
         assertEquals(3, InterventionCatalog.getByCategory(InterventionCategory.MEDITATION).size)

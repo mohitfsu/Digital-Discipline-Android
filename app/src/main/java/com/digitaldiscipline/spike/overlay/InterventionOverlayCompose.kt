@@ -263,6 +263,26 @@ fun InterventionOverlayContent(
                 currentPauseSeconds = 30
                 activeTab = ActiveInterventionTab.PAUSE_10S
             },
+            onSwitchChallenge = { newChallengeId ->
+                val newDef = InterventionCatalog.getIntervention(newChallengeId)
+                if (newDef != null) {
+                    selectedIntervention = newDef
+                    val isCamera = newDef.category == InterventionCategory.MOVEMENT ||
+                                   newDef.category == InterventionCategory.UPPER_BODY ||
+                                   newDef.category == InterventionCategory.YOGA_MOBILITY
+                    if (isCamera) {
+                        activeTab = ActiveInterventionTab.CAMERA_POSE_WORKOUT
+                    } else if (newDef.category == InterventionCategory.BREATHING || newDef.id.contains("BREATH")) {
+                        currentBreathingSeconds = if (newDef.defaultDurationSeconds > 0) kotlin.math.max(30, newDef.defaultDurationSeconds) else 30
+                        activeTab = ActiveInterventionTab.BREATHING_30S
+                    } else if (newDef.category == InterventionCategory.COGNITIVE || newDef.id.contains("PUZZLE") || newDef.id.contains("HANGMAN")) {
+                        activeTab = ActiveInterventionTab.COGNITIVE_CHALLENGE
+                    } else {
+                        currentPauseSeconds = if (newDef.defaultDurationSeconds > 0) kotlin.math.max(30, newDef.defaultDurationSeconds) else 30
+                        activeTab = ActiveInterventionTab.PAUSE_10S
+                    }
+                }
+            },
             onDismiss = {
                 activeTab = ActiveInterventionTab.INTENTIONAL_PAUSE
             }

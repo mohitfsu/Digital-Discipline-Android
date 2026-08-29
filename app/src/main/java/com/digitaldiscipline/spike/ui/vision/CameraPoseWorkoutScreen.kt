@@ -9,10 +9,18 @@ import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -32,7 +40,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.digitaldiscipline.spike.intervention.session.InterventionSession
 import com.digitaldiscipline.spike.intervention.validation.CameraPoseValidator
-import com.digitaldiscipline.spike.intervention.validation.ValidationResult
 import com.digitaldiscipline.spike.intervention.vision.CameraPoseAnalyzer
 import com.digitaldiscipline.spike.intervention.vision.PoseClassificationResult
 import com.digitaldiscipline.spike.intervention.vision.PoseSkeletalCanvas
@@ -40,16 +47,27 @@ import com.google.mlkit.vision.pose.Pose
 import kotlinx.coroutines.delay
 import java.util.concurrent.Executors
 
+enum class WorkoutStage {
+    POSITIONING,
+    COUNTDOWN_3,
+    COUNTDOWN_2,
+    COUNTDOWN_1,
+    COUNTDOWN_GO,
+    ACTIVE,
+    COMPLETED
+}
+
 /**
- * Real-Time Camera Computer Vision Pose Workout Screen.
+ * Enhanced Real-Time Camera Computer Vision Pose Workout Screen.
  *
- * Provides:
- * - Real-time CameraX preview with TextureView (COMPATIBLE mode for floating window overlays).
- * - Live skeletal wireframe overlay.
- * - Accurate rep counting and form coaching.
- * - Clear distinction between Count-Based (Push-ups/Squats) and Time-Based Hold (Wall Sit/Plank).
- * - Front/Back camera toggle.
+ * Features:
+ * - 3-2-1-GO Sequence: Animated countdown triggers once user is in valid starting stance.
+ * - Dynamic Color Feedback: Wireframe & joints turn 🟢 Neon Green when posture is correct and 🔴 Bright Red when broken.
+ * - Instant Pause & Resume: Counter/timer freezes immediately if posture breaks, resuming only when form is restored.
+ * - Targeted Joint Pointing: Observes & points to key joints with angles (Elbows, Knees, Hips, Ankles).
+ * - Running Challenge Switcher: Allows seamless switching to another challenge mid-workout.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CameraPoseWorkoutScreen(
     exerciseId: String = "PUSH_UPS",
@@ -60,10 +78,14 @@ fun CameraPoseWorkoutScreen(
     rewardMinutes: Int = (session?.rewardSeconds ?: 600) / 60,
     onComplete: (earnedSeconds: Int) -> Unit,
     onSwitchToMotionSensor: (() -> Unit)? = null,
+    onSwitchChallenge: ((challengeId: String) -> Unit)? = null,
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
+
+    var activeExerciseId by remember { mutableStateOf(exerciseId) }
+    var activeExerciseTitle by remember { mutableStateOf(exerciseTitle) }
 
     var hasCameraPermission by remember {
         mutableStateOf(
@@ -72,6 +94,7 @@ fun CameraPoseWorkoutScreen(
     }
 
     var lensFacing by remember { mutableIntStateOf(CameraSelector.LENS_FACING_FRONT) }
+    var showSwitchChallengeSheet by remember { mutableStateOf(false) }
 
     val requestCameraPermission = {
         CameraPermissionActivity.launch(context)
@@ -91,10 +114,11 @@ fun CameraPoseWorkoutScreen(
         }
     }
 
-    val isHoldExercise = remember(exerciseId) {
-        when (exerciseId.uppercase()) {
+    val isHoldExercise = remember(activeExerciseId) {
+        when (activeExerciseId.uppercase()) {
             "PUSH_UPS", "PUSHUPS",
             "SQUATS", "BODYWEIGHT_SQUATS",
+            "SIT_UPS", "SITUPS", "CRUNCHES",
             "LUNGES", "ALTERNATING_LUNGES",
             "JUMPING_JACKS",
             "HIGH_KNEES",
@@ -105,18 +129,20 @@ fun CameraPoseWorkoutScreen(
     }
 
     // Active Validator instance
-    val cameraPoseValidator = remember(exerciseId) {
-        CameraPoseValidator(
-            exerciseId = exerciseId,
-            targetReps = targetReps,
-            targetHoldSeconds = kotlin.math.max(30, targetHoldSeconds)
+    var cameraPoseValidator by remember(activeExerciseId) {
+        mutableStateOf(
+            CameraPoseValidator(
+                exerciseId = activeExerciseId,
+                targetReps = targetReps,
+                targetHoldSeconds = kotlin.math.max(30, targetHoldSeconds)
+            )
         )
     }
 
-    LaunchedEffect(session) {
+    LaunchedEffect(session, activeExerciseId) {
         if (session != null) {
             cameraPoseValidator.startValidation(session) { result ->
-                if (result is ValidationResult.Completed) {
+                if (result is com.digitaldiscipline.spike.intervention.validation.ValidationResult.Completed) {
                     onComplete(session.rewardSeconds)
                 }
             }
@@ -127,6 +153,8 @@ fun CameraPoseWorkoutScreen(
     var imageWidth by remember { mutableIntStateOf(0) }
     var imageHeight by remember { mutableIntStateOf(0) }
 
+    var workoutStage by remember { mutableStateOf(WorkoutStage.POSITIONING) }
+
     var classificationResult by remember {
         mutableStateOf(
             PoseClassificationResult(
@@ -135,19 +163,48 @@ fun CameraPoseWorkoutScreen(
                 isHolding = false,
                 holdSeconds = 0,
                 targetHoldSeconds = targetHoldSeconds,
-                feedbackMessage = if (isHoldExercise) "Hold position in camera view" else "Ready! Start your reps",
-                isCompleted = false
+                feedbackMessage = "Get into starting position",
+                isCompleted = false,
+                isPostureCorrect = false,
+                isReadyToStart = false
             )
         )
     }
 
-    // Timer state
+    // 1-2-3-GO Countdown State Machine
+    var isCountingDown by remember { mutableStateOf(false) }
+    LaunchedEffect(classificationResult.isReadyToStart, workoutStage) {
+        if (workoutStage == WorkoutStage.POSITIONING && classificationResult.isReadyToStart && !isCountingDown) {
+            isCountingDown = true
+            workoutStage = WorkoutStage.COUNTDOWN_3
+            delay(900L)
+            if (!classificationResult.isPostureCorrect && !classificationResult.isReadyToStart) {
+                workoutStage = WorkoutStage.POSITIONING
+                isCountingDown = false
+                return@LaunchedEffect
+            }
+            workoutStage = WorkoutStage.COUNTDOWN_2
+            delay(900L)
+            if (!classificationResult.isPostureCorrect && !classificationResult.isReadyToStart) {
+                workoutStage = WorkoutStage.POSITIONING
+                isCountingDown = false
+                return@LaunchedEffect
+            }
+            workoutStage = WorkoutStage.COUNTDOWN_1
+            delay(900L)
+            workoutStage = WorkoutStage.COUNTDOWN_GO
+            delay(600L)
+            workoutStage = WorkoutStage.ACTIVE
+            isCountingDown = false
+        }
+    }
+
+    // Timer state (only increments when active and posture is correct)
     var elapsedSeconds by remember { mutableIntStateOf(0) }
-    LaunchedEffect(Unit) {
-        val start = SystemClock.elapsedRealtime()
-        while (true) {
+    LaunchedEffect(workoutStage, classificationResult.isPostureCorrect) {
+        while (workoutStage == WorkoutStage.ACTIVE && classificationResult.isPostureCorrect) {
             delay(1000L)
-            elapsedSeconds = ((SystemClock.elapsedRealtime() - start) / 1000L).toInt()
+            elapsedSeconds += 1
         }
     }
 
@@ -211,8 +268,11 @@ fun CameraPoseWorkoutScreen(
                             val result = cameraPoseValidator.onPoseReceived(pose)
                             if (result != null) {
                                 classificationResult = result
-                                if (result.isCompleted && session == null) {
-                                    onComplete(rewardMinutes * 60)
+                                if (result.isCompleted) {
+                                    workoutStage = WorkoutStage.COMPLETED
+                                    if (session == null) {
+                                        onComplete(rewardMinutes * 60)
+                                    }
                                 }
                             }
                         }
@@ -253,7 +313,6 @@ fun CameraPoseWorkoutScreen(
                     previewView
                 },
                 update = { previewView ->
-                    // Re-bind when user toggles camera flip
                     val cameraProvider = cameraProviderInstance ?: return@AndroidView
                     val preview = Preview.Builder().build().also {
                         it.setSurfaceProvider(previewView.surfaceProvider)
@@ -280,14 +339,17 @@ fun CameraPoseWorkoutScreen(
                 modifier = Modifier.fillMaxSize()
             )
 
-            // 2. Real-Time Skeletal Wireframe Canvas Overlay
+            // 2. Real-Time Skeletal Wireframe Canvas Overlay with Color Feedback & Targeted Joint Halos
             if (imageWidth > 0 && imageHeight > 0) {
                 PoseSkeletalCanvas(
                     pose = currentPose,
                     imageWidth = imageWidth,
                     imageHeight = imageHeight,
                     isFrontCamera = lensFacing == CameraSelector.LENS_FACING_FRONT,
-                    isActionActive = classificationResult.isHolding || classificationResult.currentReps > 0,
+                    isActionActive = workoutStage == WorkoutStage.ACTIVE || workoutStage == WorkoutStage.COMPLETED,
+                    isPostureCorrect = classificationResult.isPostureCorrect,
+                    exerciseId = activeExerciseId,
+                    activeAngles = classificationResult.activeAngles,
                     modifier = Modifier.fillMaxSize()
                 )
             }
@@ -338,16 +400,17 @@ fun CameraPoseWorkoutScreen(
             }
         }
 
-        val isActiveNow = classificationResult.isHolding || classificationResult.currentReps > 0
+        val isPostureGood = classificationResult.isPostureCorrect
+        val isInActivePhase = workoutStage == WorkoutStage.ACTIVE
 
         // =========================================================================
-        // 3. TOP OVERLAY: HEADER, TIMER, FLIP CAMERA & CLOSE BUTTON
+        // 3. TOP OVERLAY: HEADER, TIMER, FLIP CAMERA & SWITCH CHALLENGE BUTTONS
         // =========================================================================
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .statusBarsPadding()
-                .padding(horizontal = 18.dp, vertical = 14.dp),
+                .padding(horizontal = 16.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -357,45 +420,72 @@ fun CameraPoseWorkoutScreen(
                 color = Color.Black.copy(alpha = 0.65f),
                 border = BorderStroke(1.dp, Color(0xFF334155)),
                 modifier = Modifier
-                    .size(40.dp)
+                    .size(38.dp)
                     .clickable {
                         cameraPoseValidator.onUserCancelled()
                         onDismiss()
                     }
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    Text("✕", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                    Text("✕", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 }
             }
 
-            // Exercise Title + High-Visibility Green Metric Subtitle
+            // Exercise Title & Status Subtitle
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
-                    text = exerciseTitle,
+                    text = activeExerciseTitle,
                     color = Color.White,
-                    fontSize = 19.sp,
+                    fontSize = 18.sp,
                     fontWeight = FontWeight.Black
                 )
                 Text(
-                    text = if (isHoldExercise) "${classificationResult.holdSeconds}s / ${targetHoldSeconds}s HOLD" else "${classificationResult.currentReps} / ${targetReps} REPS",
-                    color = if (isActiveNow) Color(0xFF22C55E) else Color(0xFF38BDF8),
-                    fontSize = 16.sp,
+                    text = when (workoutStage) {
+                        WorkoutStage.POSITIONING -> "Get Ready"
+                        WorkoutStage.COUNTDOWN_3, WorkoutStage.COUNTDOWN_2, WorkoutStage.COUNTDOWN_1, WorkoutStage.COUNTDOWN_GO -> "Starting..."
+                        WorkoutStage.ACTIVE -> if (isHoldExercise) "${classificationResult.holdSeconds}s / ${targetHoldSeconds}s HOLD" else "${classificationResult.currentReps} / ${targetReps} REPS"
+                        WorkoutStage.COMPLETED -> "🎉 Completed!"
+                    },
+                    color = when {
+                        workoutStage == WorkoutStage.COMPLETED || isPostureGood -> Color(0xFF22C55E)
+                        isInActivePhase && !isPostureGood -> Color(0xFFEF4444)
+                        else -> Color(0xFF38BDF8)
+                    },
+                    fontSize = 15.sp,
                     fontWeight = FontWeight.Black
                 )
             }
 
-            // Camera Flip & Timer Badge Row
+            // Right Actions: Switch Challenge & Flip Camera
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
+                // Switch Challenge Button
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFF0F172A).copy(alpha = 0.85f),
+                    border = BorderStroke(1.dp, Color(0xFF38BDF8)),
+                    modifier = Modifier
+                        .clickable { showSwitchChallengeSheet = true }
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("🔄", fontSize = 12.sp)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Switch", color = Color(0xFF38BDF8), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+
                 // Flip Camera Button
                 Surface(
                     shape = CircleShape,
                     color = Color.Black.copy(alpha = 0.65f),
                     border = BorderStroke(1.dp, Color(0xFF334155)),
                     modifier = Modifier
-                        .size(40.dp)
+                        .size(38.dp)
                         .clickable {
                             lensFacing = if (lensFacing == CameraSelector.LENS_FACING_FRONT) {
                                 CameraSelector.LENS_FACING_BACK
@@ -405,61 +495,118 @@ fun CameraPoseWorkoutScreen(
                         }
                 ) {
                     Box(contentAlignment = Alignment.Center) {
-                        Text("🔄", fontSize = 15.sp)
+                        Text("📷", fontSize = 14.sp)
                     }
-                }
-
-                // Timer Badge
-                val mins = elapsedSeconds / 60
-                val secs = elapsedSeconds % 60
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = Color.Black.copy(alpha = 0.65f),
-                    border = BorderStroke(1.dp, Color(0xFF334155))
-                ) {
-                    Text(
-                        text = "${mins}:${if (secs < 10) "0$secs" else secs}",
-                        color = Color.White,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                    )
                 }
             }
         }
 
-        val placementGuide = remember(exerciseId) { getPhonePlacementGuide(exerciseId) }
-        var showPlacementGuide by remember { mutableStateOf(true) }
+        val placementGuide = remember(activeExerciseId) { getPhonePlacementGuide(activeExerciseId) }
+        var showPlacementGuide by remember { mutableStateOf(false) }
 
         // =========================================================================
-        // 4. LIVE COACHING & FEEDBACK BANNER
+        // 4. LIVE COACHING & COLOR FEEDBACK BANNER (Green when correct, Red when paused)
         // =========================================================================
+        val bannerBgColor = when {
+            workoutStage == WorkoutStage.COMPLETED -> Color(0xFF064E3B).copy(alpha = 0.95f)
+            isInActivePhase && isPostureGood -> Color(0xFF064E3B).copy(alpha = 0.95f)
+            isInActivePhase && !isPostureGood -> Color(0xFF7F1D1D).copy(alpha = 0.95f)
+            classificationResult.isReadyToStart -> Color(0xFF064E3B).copy(alpha = 0.90f)
+            else -> Color(0xFF0F172A).copy(alpha = 0.90f)
+        }
+        val bannerBorderColor = when {
+            workoutStage == WorkoutStage.COMPLETED || isPostureGood -> Color(0xFF22C55E)
+            isInActivePhase && !isPostureGood -> Color(0xFFEF4444)
+            else -> Color(0xFF38BDF8).copy(alpha = 0.7f)
+        }
+
         Surface(
             shape = RoundedCornerShape(20.dp),
-            color = if (isActiveNow) Color(0xFF064E3B).copy(alpha = 0.92f) else Color(0xFF0F172A).copy(alpha = 0.88f),
-            border = BorderStroke(1.5.dp, if (isActiveNow) Color(0xFF22C55E) else Color(0xFF0284C7).copy(alpha = 0.7f)),
+            color = bannerBgColor,
+            border = BorderStroke(1.5.dp, bannerBorderColor),
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .statusBarsPadding()
-                .padding(top = 72.dp)
+                .padding(top = 66.dp)
         ) {
             Row(
-                modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp),
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(if (classificationResult.isCompleted) "🎉" else if (isActiveNow) "🟢" else "💡", fontSize = 16.sp)
+                Text(
+                    text = when {
+                        workoutStage == WorkoutStage.COMPLETED -> "🎉"
+                        isInActivePhase && isPostureGood -> "🟢"
+                        isInActivePhase && !isPostureGood -> "⚠️"
+                        classificationResult.isReadyToStart -> "🟢"
+                        else -> "💡"
+                    },
+                    fontSize = 15.sp
+                )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = classificationResult.feedbackMessage,
-                    color = if (classificationResult.isCompleted || isActiveNow) Color(0xFF4ADE80) else Color(0xFF38BDF8),
-                    fontSize = 14.sp,
+                    text = when {
+                        workoutStage == WorkoutStage.COMPLETED -> "Challenge Completed! 🎉"
+                        isInActivePhase && !isPostureGood -> "Posture broken! Counter Paused (return to position)"
+                        isInActivePhase && isPostureGood -> classificationResult.feedbackMessage
+                        workoutStage == WorkoutStage.POSITIONING && classificationResult.isReadyToStart -> "🟢 Stance Detected! Hold still for countdown..."
+                        else -> classificationResult.feedbackMessage
+                    },
+                    color = when {
+                        workoutStage == WorkoutStage.COMPLETED || isPostureGood -> Color(0xFF4ADE80)
+                        isInActivePhase && !isPostureGood -> Color(0xFFFCA5A5)
+                        else -> Color(0xFF38BDF8)
+                    },
+                    fontSize = 13.sp,
                     fontWeight = FontWeight.Bold
                 )
             }
         }
 
         // =========================================================================
-        // 4B. PHONE CAMERA SETUP & ALIGNMENT ILLUSTRATION GUIDE
+        // 4B. 3... 2... 1... GO! FLASHING COUNTDOWN OVERLAY
+        // =========================================================================
+        val isCountdownActive = workoutStage in listOf(
+            WorkoutStage.COUNTDOWN_3,
+            WorkoutStage.COUNTDOWN_2,
+            WorkoutStage.COUNTDOWN_1,
+            WorkoutStage.COUNTDOWN_GO
+        )
+
+        AnimatedVisibility(
+            visible = isCountdownActive,
+            enter = fadeIn(tween(150)) + scaleIn(tween(200)),
+            exit = fadeOut(tween(150)) + scaleOut(tween(200)),
+            modifier = Modifier.align(Alignment.Center)
+        ) {
+            val countdownText = when (workoutStage) {
+                WorkoutStage.COUNTDOWN_3 -> "3"
+                WorkoutStage.COUNTDOWN_2 -> "2"
+                WorkoutStage.COUNTDOWN_1 -> "1"
+                WorkoutStage.COUNTDOWN_GO -> "GO! 🚀"
+                else -> ""
+            }
+
+            Surface(
+                shape = CircleShape,
+                color = Color.Black.copy(alpha = 0.85f),
+                border = BorderStroke(4.dp, if (workoutStage == WorkoutStage.COUNTDOWN_GO) Color(0xFF22C55E) else Color(0xFF38BDF8)),
+                shadowElevation = 24.dp,
+                modifier = Modifier.size(160.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        text = countdownText,
+                        color = if (workoutStage == WorkoutStage.COUNTDOWN_GO) Color(0xFF4ADE80) else Color.White,
+                        fontSize = if (workoutStage == WorkoutStage.COUNTDOWN_GO) 36.sp else 64.sp,
+                        fontWeight = FontWeight.Black
+                    )
+                }
+            }
+        }
+
+        // =========================================================================
+        // 4C. PHONE CAMERA SETUP & ALIGNMENT ILLUSTRATION GUIDE
         // =========================================================================
         if (showPlacementGuide) {
             Surface(
@@ -469,20 +616,20 @@ fun CameraPoseWorkoutScreen(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .statusBarsPadding()
-                    .padding(top = 126.dp, start = 16.dp, end = 16.dp)
+                    .padding(top = 114.dp, start = 16.dp, end = 16.dp)
                     .fillMaxWidth()
             ) {
-                Column(modifier = Modifier.padding(14.dp)) {
+                Column(modifier = Modifier.padding(12.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(placementGuide.iconEmoji, fontSize = 20.sp)
-                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(placementGuide.iconEmoji, fontSize = 18.sp)
+                            Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = "CAMERA SETUP & ALIGNMENT GUIDE",
+                                text = "CAMERA SETUP GUIDE",
                                 color = Color(0xFF38BDF8),
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Black,
@@ -493,24 +640,23 @@ fun CameraPoseWorkoutScreen(
                             shape = CircleShape,
                             color = Color(0xFF1E293B),
                             modifier = Modifier
-                                .size(24.dp)
+                                .size(22.dp)
                                 .clickable { showPlacementGuide = false }
                         ) {
                             Box(contentAlignment = Alignment.Center) {
-                                Text("✕", color = Color(0xFF94A3B8), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                Text("✕", color = Color(0xFF94A3B8), fontSize = 10.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
 
-                    // Step 1: Placement & Distance
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(8.dp))
                             .background(Color(0xFF1E293B))
-                            .padding(horizontal = 10.dp, vertical = 7.dp),
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
@@ -518,23 +664,22 @@ fun CameraPoseWorkoutScreen(
                         Text(placementGuide.distance, color = Color(0xFF38BDF8), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
 
-                    Spacer(modifier = Modifier.height(6.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
 
-                    // Step 2: What must be visible
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(8.dp))
                             .background(Color(0xFF1E293B))
-                            .padding(horizontal = 10.dp, vertical = 7.dp),
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("👁️ ", fontSize = 12.sp)
+                        Text("👁️ ", fontSize = 11.sp)
                         Text(
                             text = placementGuide.whatMustBeVisible,
                             color = Color(0xFFE2E8F0),
                             fontSize = 11.sp,
-                            lineHeight = 15.sp
+                            lineHeight = 14.sp
                         )
                     }
                 }
@@ -542,17 +687,17 @@ fun CameraPoseWorkoutScreen(
         } else {
             // Minimized Setup Hint Button
             Surface(
-                shape = RoundedCornerShape(20.dp),
+                shape = RoundedCornerShape(16.dp),
                 color = Color(0xFF0F172A).copy(alpha = 0.85f),
                 border = BorderStroke(1.dp, Color(0xFF334155)),
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .statusBarsPadding()
-                    .padding(top = 126.dp, end = 16.dp)
+                    .padding(top = 114.dp, end = 16.dp)
                     .clickable { showPlacementGuide = true }
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text("📱 Setup Guide", color = Color(0xFF38BDF8), fontSize = 11.sp, fontWeight = FontWeight.Bold)
@@ -561,21 +706,33 @@ fun CameraPoseWorkoutScreen(
         }
 
         // =========================================================================
-        // 5. BOTTOM OVERLAY: LARGE GLOWING GREEN METRIC BADGE & FINISH BUTTON
+        // 5. BOTTOM OVERLAY: LARGE METRIC BADGE & FINISH / SWITCH BUTTON
         // =========================================================================
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .align(Alignment.BottomCenter)
                 .navigationBarsPadding()
-                .padding(horizontal = 24.dp, vertical = 20.dp),
+                .padding(horizontal = 20.dp, vertical = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // Large Glowing Circular Metric Counter (Reps or Hold Seconds)
+            val isPaused = isInActivePhase && !isPostureGood
+            val badgeBgColor = when {
+                workoutStage == WorkoutStage.COMPLETED || (isInActivePhase && isPostureGood) -> Color(0xFF059669)
+                isPaused -> Color(0xFF991B1B)
+                else -> Color(0xFF0284C7)
+            }
+            val badgeBorderColor = when {
+                workoutStage == WorkoutStage.COMPLETED || (isInActivePhase && isPostureGood) -> Color(0xFF4ADE80)
+                isPaused -> Color(0xFFEF4444)
+                else -> Color(0xFF38BDF8)
+            }
+
             Surface(
                 shape = CircleShape,
-                color = if (isActiveNow) Color(0xFF059669) else Color(0xFF0284C7),
-                border = BorderStroke(4.dp, if (isActiveNow) Color(0xFF4ADE80) else Color(0xFF38BDF8)),
+                color = badgeBgColor,
+                border = BorderStroke(4.dp, badgeBorderColor),
                 shadowElevation = 16.dp,
                 modifier = Modifier.size(92.dp)
             ) {
@@ -586,12 +743,22 @@ fun CameraPoseWorkoutScreen(
                     Text(
                         text = if (isHoldExercise) "${classificationResult.holdSeconds}s" else "${classificationResult.currentReps}",
                         color = Color.White,
-                        fontSize = 34.sp,
+                        fontSize = 32.sp,
                         fontWeight = FontWeight.Black
                     )
                     Text(
-                        text = if (isHoldExercise) (if (isActiveNow) "HOLDING" else "HOLD") else (if (isActiveNow) "COUNTING" else "REPS"),
-                        color = if (isActiveNow) Color(0xFFDCFCE7) else Color(0xFFBAE6FD),
+                        text = when {
+                            isPaused -> "PAUSED"
+                            workoutStage == WorkoutStage.COMPLETED -> "DONE"
+                            isInActivePhase && isHoldExercise -> "HOLDING"
+                            isInActivePhase -> "COUNTING"
+                            else -> if (isHoldExercise) "HOLD" else "REPS"
+                        },
+                        color = when {
+                            isPaused -> Color(0xFFFECACA)
+                            isInActivePhase -> Color(0xFFDCFCE7)
+                            else -> Color(0xFFBAE6FD)
+                        },
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Black,
                         letterSpacing = 1.2.sp
@@ -599,30 +766,144 @@ fun CameraPoseWorkoutScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(18.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
-            // Action Button: Finish & Claim Time
-            val isReadyToClaim = classificationResult.isCompleted ||
-                    (!isHoldExercise && classificationResult.currentReps >= targetReps) ||
-                    (isHoldExercise && classificationResult.holdSeconds >= targetHoldSeconds)
-
-            Button(
-                onClick = {
-                    onComplete(rewardMinutes * 60)
-                },
-                shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (isReadyToClaim) Color(0xFF059669) else Color(0xFF0284C7)
-                ),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp)
+            // Action Buttons Row: Switch Challenge + Claim Time
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Text(
-                    text = if (isReadyToClaim) "🎉 Claim ${rewardMinutes}m Screen Time" else "Claim Screen Time (+${rewardMinutes}m)",
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold
-                )
+                // Secondary Switch Challenge Button
+                OutlinedButton(
+                    onClick = { showSwitchChallengeSheet = true },
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, Color(0xFF38BDF8)),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp)
+                ) {
+                    Text("🔄 Switch", color = Color(0xFF38BDF8), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
+
+                // Primary Finish / Claim Time Button
+                val isReadyToClaim = classificationResult.isCompleted ||
+                        (!isHoldExercise && classificationResult.currentReps >= targetReps) ||
+                        (isHoldExercise && classificationResult.holdSeconds >= targetHoldSeconds)
+
+                Button(
+                    onClick = {
+                        onComplete(rewardMinutes * 60)
+                    },
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (isReadyToClaim) Color(0xFF059669) else Color(0xFF0284C7)
+                    ),
+                    modifier = Modifier
+                        .weight(1.5f)
+                        .height(48.dp)
+                ) {
+                    Text(
+                        text = if (isReadyToClaim) "🎉 Claim ${rewardMinutes}m" else "Claim (+${rewardMinutes}m)",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+
+        // =========================================================================
+        // 6. SWITCH CHALLENGE MODAL BOTTOM SHEET
+        // =========================================================================
+        if (showSwitchChallengeSheet) {
+            ModalBottomSheet(
+                onDismissRequest = { showSwitchChallengeSheet = false },
+                containerColor = Color(0xFF090D16),
+                contentColor = Color.White,
+                shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp)
+                        .padding(bottom = 32.dp)
+                ) {
+                    Text(
+                        text = "Choose Another Challenge",
+                        color = Color.White,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Black
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Switch freely without losing your session progress.",
+                        color = Color(0xFF94A3B8),
+                        fontSize = 12.sp
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    val challenges = listOf(
+                        Triple("PUSH_UPS", "💪 Push-ups", "10 Reps • Camera Vision"),
+                        Triple("SQUATS", "🏋️ Bodyweight Squats", "10 Reps • Camera Vision"),
+                        Triple("SIT_UPS", "🤸 Core Sit-ups", "10 Reps • Camera Vision"),
+                        Triple("WALL_SIT", "🧱 Wall Sit Hold", "30s • Isometric Camera"),
+                        Triple("PLANK", "🧘 Core Plank Hold", "30s • Isometric Camera"),
+                        Triple("CALF_RAISES", "🦶 Calf Raises", "15 Reps • Camera Vision"),
+                        Triple("JUMPING_JACKS", "⚡ Jumping Jacks", "15 Reps • Dynamic Vision"),
+                        Triple("MINDFUL_HANGMAN", "🔤 Mindful Hangman", "Classic Word Game • Mental Reset"),
+                        Triple("PICTURE_PUZZLE", "🧩 3x3 Picture Puzzle", "Visual Spatial Reset"),
+                        Triple("BOX_BREATHING", "🫁 Box Breathing", "4-4-4-4 Calming Flow"),
+                        Triple("STEP_AWAY", "💧 Step Away Walk", "Get water & reset eyes")
+                    )
+
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 380.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(challenges) { (id, title, desc) ->
+                            val isSelected = id.equals(activeExerciseId, ignoreCase = true)
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = if (isSelected) Color(0xFF0369A1).copy(alpha = 0.35f) else Color(0xFF0F172A),
+                                border = BorderStroke(1.dp, if (isSelected) Color(0xFF38BDF8) else Color(0xFF1E293B)),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        showSwitchChallengeSheet = false
+                                        if (onSwitchChallenge != null) {
+                                            onSwitchChallenge(id)
+                                        } else {
+                                            // Internal exercise switch
+                                            activeExerciseId = id
+                                            activeExerciseTitle = title.split(" ", limit = 2).getOrElse(1) { title }
+                                            workoutStage = WorkoutStage.POSITIONING
+                                            isCountingDown = false
+                                        }
+                                    }
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(14.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Column {
+                                        Text(title, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                        Text(desc, color = Color(0xFF94A3B8), fontSize = 11.sp)
+                                    }
+                                    if (isSelected) {
+                                        Text("Active", color = Color(0xFF38BDF8), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    } else {
+                                        Text("Start ➔", color = Color(0xFF64748B), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -654,6 +935,14 @@ fun getPhonePlacementGuide(exerciseId: String): PhonePlacementGuide {
             distance = "📏 4 to 6 ft away",
             whatMustBeVisible = "Full horizontal body (head, chest, hips) in frame",
             iconEmoji = "💪"
+        )
+        "SIT_UPS", "SITUPS", "CRUNCHES" -> PhonePlacementGuide(
+            title = "Sit-ups Setup",
+            phonePlacement = "📱 Floor or low stand facing mat",
+            cameraAngle = "📐 Side horizontal angle",
+            distance = "📏 4 to 6 ft away",
+            whatMustBeVisible = "Upper body, hips, and knees visible while lying and sitting up",
+            iconEmoji = "🤸"
         )
         "SQUATS", "BODYWEIGHT_SQUATS", "LUNGES", "ALTERNATING_LUNGES" -> PhonePlacementGuide(
             title = "Squats / Lunges Setup",

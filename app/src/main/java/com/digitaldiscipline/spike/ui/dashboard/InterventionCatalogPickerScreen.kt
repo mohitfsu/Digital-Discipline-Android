@@ -504,6 +504,12 @@ fun InterventionCatalogPickerScreen(
                         }
                         activeDemoChallenge = null
                     },
+                    onSwitchChallenge = { newChallengeId ->
+                        val newDef = InterventionCatalog.getIntervention(newChallengeId)
+                        if (newDef != null) {
+                            activeDemoChallenge = newDef
+                        }
+                    },
                     onDismiss = { activeDemoChallenge = null }
                 )
             } else {
