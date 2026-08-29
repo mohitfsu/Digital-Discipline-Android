@@ -490,28 +490,30 @@ fun InterventionCatalogPickerScreen(
         ) {
             if (isCameraWorkout && hasCameraPermission) {
                 // Fullscreen Live AI Camera Tracking Studio
-                CameraPoseWorkoutScreen(
-                    exerciseId = activeChallenge.id,
-                    exerciseTitle = activeChallenge.title,
-                    targetReps = if (activeChallenge.defaultReps > 0) activeChallenge.defaultReps else 10,
-                    targetHoldSeconds = if (activeChallenge.defaultDurationSeconds > 0) activeChallenge.defaultDurationSeconds else 30,
-                    onComplete = {
-                        demoCompletedSuccess = true
-                        selectedIds = selectedIds + activeChallenge.id
-                        coroutineScope.launch {
-                            preferencesManager.setEnabledInterventions(selectedIds)
-                            Toast.makeText(context, "🎉 ${activeChallenge.title} Completed & Added to Plan!", Toast.LENGTH_SHORT).show()
-                        }
-                        activeDemoChallenge = null
-                    },
-                    onSwitchChallenge = { newChallengeId ->
-                        val newDef = InterventionCatalog.getIntervention(newChallengeId)
-                        if (newDef != null) {
-                            activeDemoChallenge = newDef
-                        }
-                    },
-                    onDismiss = { activeDemoChallenge = null }
-                )
+                key(activeChallenge.id) {
+                    CameraPoseWorkoutScreen(
+                        exerciseId = activeChallenge.id,
+                        exerciseTitle = activeChallenge.title,
+                        targetReps = if (activeChallenge.defaultReps > 0) activeChallenge.defaultReps else 10,
+                        targetHoldSeconds = if (activeChallenge.defaultDurationSeconds > 0) activeChallenge.defaultDurationSeconds else 30,
+                        onComplete = {
+                            demoCompletedSuccess = true
+                            selectedIds = selectedIds + activeChallenge.id
+                            coroutineScope.launch {
+                                preferencesManager.setEnabledInterventions(selectedIds)
+                                Toast.makeText(context, "🎉 ${activeChallenge.title} Completed & Added to Plan!", Toast.LENGTH_SHORT).show()
+                            }
+                            activeDemoChallenge = null
+                        },
+                        onSwitchChallenge = { newChallengeId ->
+                            val newDef = InterventionCatalog.getIntervention(newChallengeId)
+                            if (newDef != null) {
+                                activeDemoChallenge = newDef
+                            }
+                        },
+                        onDismiss = { activeDemoChallenge = null }
+                    )
+                }
             } else {
                 Box(
                     modifier = Modifier

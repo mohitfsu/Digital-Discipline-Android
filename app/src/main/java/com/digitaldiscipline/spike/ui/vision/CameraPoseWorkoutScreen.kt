@@ -61,11 +61,12 @@ enum class WorkoutStage {
  * Enhanced Real-Time Camera Computer Vision Pose Workout Screen.
  *
  * Features:
- * - 3-2-1-GO Sequence: Animated countdown triggers once user is in valid starting stance.
+ * - Animated Camera Placement & Posture Illustrations: Dedicated animated sketches of phone angle, distance, and looping skeleton exercises.
+ * - 3-2-1-GO Sequence: Uninterrupted countdown once user is in valid starting stance.
  * - Dynamic Color Feedback: Wireframe & joints turn 🟢 Neon Green when posture is correct and 🔴 Bright Red when broken.
  * - Instant Pause & Resume: Counter/timer freezes immediately if posture breaks, resuming only when form is restored.
  * - Targeted Joint Pointing: Observes & points to key joints with angles (Elbows, Knees, Hips, Ankles).
- * - Running Challenge Switcher: Allows seamless switching to another challenge mid-workout.
+ * - Instant Running Challenge Switcher: Allows seamless switching to another challenge mid-workout.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -84,8 +85,8 @@ fun CameraPoseWorkoutScreen(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    var activeExerciseId by remember { mutableStateOf(exerciseId) }
-    var activeExerciseTitle by remember { mutableStateOf(exerciseTitle) }
+    var activeExerciseId by remember(exerciseId) { mutableStateOf(exerciseId) }
+    var activeExerciseTitle by remember(exerciseTitle) { mutableStateOf(exerciseTitle) }
 
     var hasCameraPermission by remember {
         mutableStateOf(
@@ -95,6 +96,8 @@ fun CameraPoseWorkoutScreen(
 
     var lensFacing by remember { mutableIntStateOf(CameraSelector.LENS_FACING_FRONT) }
     var showSwitchChallengeSheet by remember { mutableStateOf(false) }
+    var showPlacementGuideDialog by remember { mutableStateOf(false) }
+    var guideViewMode by remember { mutableStateOf(GuideViewMode.CAMERA_PLACEMENT) }
 
     val requestCameraPermission = {
         CameraPermissionActivity.launch(context)
@@ -153,9 +156,9 @@ fun CameraPoseWorkoutScreen(
     var imageWidth by remember { mutableIntStateOf(0) }
     var imageHeight by remember { mutableIntStateOf(0) }
 
-    var workoutStage by remember { mutableStateOf(WorkoutStage.POSITIONING) }
+    var workoutStage by remember(activeExerciseId) { mutableStateOf(WorkoutStage.POSITIONING) }
 
-    var classificationResult by remember {
+    var classificationResult by remember(activeExerciseId) {
         mutableStateOf(
             PoseClassificationResult(
                 currentReps = 0,
@@ -171,8 +174,8 @@ fun CameraPoseWorkoutScreen(
         )
     }
 
-    // Robust 1-2-3-GO Sequence (Uninterrupted once triggered)
-    var triggerCountdown by remember { mutableStateOf(false) }
+    // Robust 1-2-3-GO Sequence
+    var triggerCountdown by remember(activeExerciseId) { mutableStateOf(false) }
     LaunchedEffect(classificationResult.isReadyToStart, workoutStage) {
         if (workoutStage == WorkoutStage.POSITIONING && classificationResult.isReadyToStart && !triggerCountdown) {
             triggerCountdown = true
@@ -194,8 +197,8 @@ fun CameraPoseWorkoutScreen(
         }
     }
 
-    // Timer state (only increments when active and posture is correct)
-    var elapsedSeconds by remember { mutableIntStateOf(0) }
+    // Timer state
+    var elapsedSeconds by remember(activeExerciseId) { mutableIntStateOf(0) }
     LaunchedEffect(workoutStage, classificationResult.isPostureCorrect) {
         while (workoutStage == WorkoutStage.ACTIVE && classificationResult.isPostureCorrect) {
             delay(1000L)
@@ -208,7 +211,7 @@ fun CameraPoseWorkoutScreen(
     var activeAnalyzer by remember { mutableStateOf<CameraPoseAnalyzer?>(null) }
 
     // Strict Lifecycle Shutdown Observer
-    DisposableEffect(lifecycleOwner) {
+    DisposableEffect(lifecycleOwner, activeExerciseId) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_PAUSE || event == Lifecycle.Event.ON_STOP) {
                 cameraProviderInstance?.unbindAll()
@@ -233,7 +236,7 @@ fun CameraPoseWorkoutScreen(
             .background(Color.Black)
     ) {
         if (hasCameraPermission) {
-            // 1. Live Camera Preview with COMPATIBLE (TextureView) for floating overlay support
+            // 1. Live Camera Preview
             AndroidView(
                 factory = { ctx ->
                     val previewView = PreviewView(ctx).apply {
@@ -336,7 +339,7 @@ fun CameraPoseWorkoutScreen(
                 modifier = Modifier.fillMaxSize()
             )
 
-            // 2. Real-Time Skeletal Wireframe Canvas Overlay with Color Feedback & Targeted Joint Halos
+            // 2. Real-Time Skeletal Wireframe Overlay
             if (imageWidth > 0 && imageHeight > 0) {
                 PoseSkeletalCanvas(
                     pose = currentPose,
@@ -419,7 +422,7 @@ fun CameraPoseWorkoutScreen(
                 modifier = Modifier
                     .size(38.dp)
                     .clickable {
-                        cameraPoseValidator.onUserCancelled()
+                        cameraPoseValidator.onUserCancelled("User dismissed workout")
                         onDismiss()
                     }
             ) {
@@ -498,11 +501,8 @@ fun CameraPoseWorkoutScreen(
             }
         }
 
-        val placementGuide = remember(activeExerciseId) { getPhonePlacementGuide(activeExerciseId) }
-        var showPlacementGuide by remember { mutableStateOf(false) }
-
         // =========================================================================
-        // 4. LIVE COACHING & COLOR FEEDBACK BANNER (Green when correct, Red when paused)
+        // 4. LIVE COACHING & COLOR FEEDBACK BANNER
         // =========================================================================
         val bannerBgColor = when {
             workoutStage == WorkoutStage.COMPLETED -> Color(0xFF064E3B).copy(alpha = 0.95f)
@@ -603,102 +603,23 @@ fun CameraPoseWorkoutScreen(
         }
 
         // =========================================================================
-        // 4C. PHONE CAMERA SETUP & ALIGNMENT ILLUSTRATION GUIDE
+        // 4C. PHONE SETUP & POSTURE ANIMATED GUIDE BUTTON
         // =========================================================================
-        if (showPlacementGuide) {
-            Surface(
-                shape = RoundedCornerShape(16.dp),
-                color = Color(0xFF0F172A).copy(alpha = 0.95f),
-                border = BorderStroke(1.5.dp, Color(0xFF38BDF8)),
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .statusBarsPadding()
-                    .padding(top = 114.dp, start = 16.dp, end = 16.dp)
-                    .fillMaxWidth()
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = Color(0xFF0F172A).copy(alpha = 0.85f),
+            border = BorderStroke(1.dp, Color(0xFF38BDF8)),
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .statusBarsPadding()
+                .padding(top = 114.dp, end = 16.dp)
+                .clickable { showPlacementGuideDialog = true }
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(modifier = Modifier.padding(12.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(placementGuide.iconEmoji, fontSize = 18.sp)
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = "CAMERA SETUP GUIDE",
-                                color = Color(0xFF38BDF8),
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Black,
-                                letterSpacing = 0.8.sp
-                            )
-                        }
-                        Surface(
-                            shape = CircleShape,
-                            color = Color(0xFF1E293B),
-                            modifier = Modifier
-                                .size(22.dp)
-                                .clickable { showPlacementGuide = false }
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Text("✕", color = Color(0xFF94A3B8), fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(6.dp))
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(Color(0xFF1E293B))
-                            .padding(horizontal = 10.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(placementGuide.phonePlacement, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                        Text(placementGuide.distance, color = Color(0xFF38BDF8), fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                    }
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(Color(0xFF1E293B))
-                            .padding(horizontal = 10.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("👁️ ", fontSize = 11.sp)
-                        Text(
-                            text = placementGuide.whatMustBeVisible,
-                            color = Color(0xFFE2E8F0),
-                            fontSize = 11.sp,
-                            lineHeight = 14.sp
-                        )
-                    }
-                }
-            }
-        } else {
-            // Minimized Setup Hint Button
-            Surface(
-                shape = RoundedCornerShape(16.dp),
-                color = Color(0xFF0F172A).copy(alpha = 0.85f),
-                border = BorderStroke(1.dp, Color(0xFF334155)),
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .statusBarsPadding()
-                    .padding(top = 114.dp, end = 16.dp)
-                    .clickable { showPlacementGuide = true }
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("📱 Setup Guide", color = Color(0xFF38BDF8), fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                }
+                Text("📱 Setup & Form Guide", color = Color(0xFF38BDF8), fontSize = 11.sp, fontWeight = FontWeight.Bold)
             }
         }
 
@@ -713,7 +634,7 @@ fun CameraPoseWorkoutScreen(
                 .padding(horizontal = 20.dp, vertical = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Large Glowing Circular Metric Counter (Reps or Hold Seconds)
+            // Large Glowing Circular Metric Counter
             val isPaused = isInActivePhase && !isPostureGood
             val badgeBgColor = when {
                 workoutStage == WorkoutStage.COMPLETED || (isInActivePhase && isPostureGood) -> Color(0xFF059669)
@@ -809,7 +730,123 @@ fun CameraPoseWorkoutScreen(
         }
 
         // =========================================================================
-        // 6. SWITCH CHALLENGE MODAL BOTTOM SHEET
+        // 6. ANIMATED SETUP & FORM ILLUSTRATION MODAL
+        // =========================================================================
+        if (showPlacementGuideDialog) {
+            val guide = getPhonePlacementGuide(activeExerciseId)
+            AlertDialog(
+                onDismissRequest = { showPlacementGuideDialog = false },
+                containerColor = Color(0xFF0F172A),
+                shape = RoundedCornerShape(24.dp),
+                title = {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "${guide.iconEmoji} ${guide.title}",
+                            color = Color.White,
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.Black
+                        )
+                        Surface(
+                            shape = CircleShape,
+                            color = Color(0xFF1E293B),
+                            modifier = Modifier
+                                .size(28.dp)
+                                .clickable { showPlacementGuideDialog = false }
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text("✕", color = Color(0xFF94A3B8), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                },
+                text = {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        // Toggle Tabs: Camera Placement vs Posture Form
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(Color(0xFF1E293B))
+                                .padding(3.dp),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = if (guideViewMode == GuideViewMode.CAMERA_PLACEMENT) Color(0xFF0284C7) else Color.Transparent,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable { guideViewMode = GuideViewMode.CAMERA_PLACEMENT }
+                            ) {
+                                Box(
+                                    modifier = Modifier.padding(vertical = 6.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text("📹 Phone Setup", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = if (guideViewMode == GuideViewMode.EXERCISE_POSTURE) Color(0xFF059669) else Color.Transparent,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable { guideViewMode = GuideViewMode.EXERCISE_POSTURE }
+                            ) {
+                                Box(
+                                    modifier = Modifier.padding(vertical = 6.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text("🏃 Posture Form", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // High-Definition Animated Illustration Canvas
+                        AnimatedExerciseGuideCanvas(
+                            exerciseId = activeExerciseId,
+                            mode = guideViewMode,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(190.dp)
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // Bulleted Instructions
+                        if (guideViewMode == GuideViewMode.CAMERA_PLACEMENT) {
+                            Text("📍 Placement: ${guide.phonePlacement}", color = Color(0xFFE2E8F0), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text("📐 Angle: ${guide.cameraAngle}", color = Color(0xFF94A3B8), fontSize = 12.sp)
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text("📏 Distance: ${guide.distance}", color = Color(0xFF38BDF8), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        } else {
+                            Text("👁️ Alignment: ${guide.whatMustBeVisible}", color = Color(0xFF4ADE80), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text("🟢 Skeleton wireframe turns green when stance is held correctly.", color = Color(0xFF94A3B8), fontSize = 11.sp)
+                        }
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = { showPlacementGuideDialog = false },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7)),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Got It • Start Challenge ➔", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            )
+        }
+
+        // =========================================================================
+        // 7. SWITCH CHALLENGE MODAL BOTTOM SHEET
         // =========================================================================
         if (showSwitchChallengeSheet) {
             ModalBottomSheet(
@@ -869,15 +906,18 @@ fun CameraPoseWorkoutScreen(
                                     .fillMaxWidth()
                                     .clickable {
                                         showSwitchChallengeSheet = false
-                                        if (onSwitchChallenge != null) {
-                                            onSwitchChallenge(id)
-                                        } else {
-                                            // Internal exercise switch
-                                            activeExerciseId = id
-                                            activeExerciseTitle = title.split(" ", limit = 2).getOrElse(1) { title }
-                                            workoutStage = WorkoutStage.POSITIONING
-                                            triggerCountdown = false
-                                        }
+                                        // Update active exercise state immediately
+                                        activeExerciseId = id
+                                        activeExerciseTitle = title.split(" ", limit = 2).getOrElse(1) { title }
+                                        workoutStage = WorkoutStage.POSITIONING
+                                        triggerCountdown = false
+                                        cameraPoseValidator = CameraPoseValidator(
+                                            exerciseId = id,
+                                            targetReps = targetReps,
+                                            targetHoldSeconds = kotlin.math.max(30, targetHoldSeconds)
+                                        )
+                                        // Inform parent router if available
+                                        onSwitchChallenge?.invoke(id)
                                     }
                             ) {
                                 Row(
@@ -894,7 +934,7 @@ fun CameraPoseWorkoutScreen(
                                     if (isSelected) {
                                         Text("Active", color = Color(0xFF38BDF8), fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                     } else {
-                                        Text("Start ➔", color = Color(0xFF64748B), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                        Text("Start ➔", color = Color(0xFF38BDF8), fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                     }
                                 }
                             }
@@ -919,65 +959,65 @@ fun getPhonePlacementGuide(exerciseId: String): PhonePlacementGuide {
     return when (exerciseId.uppercase()) {
         "CALF_RAISES", "CALF_RAISE" -> PhonePlacementGuide(
             title = "Calf Raises Setup",
-            phonePlacement = "📱 Floor (propped against wall)",
-            cameraAngle = "📐 Tilted up towards lower legs",
-            distance = "📏 3 to 5 ft away",
-            whatMustBeVisible = "Feet, ankles, and calves must be clearly in frame",
+            phonePlacement = "Floor (propped against wall)",
+            cameraAngle = "Tilted up towards lower legs",
+            distance = "3 to 5 ft away",
+            whatMustBeVisible = "Feet, ankles, and calves clearly in frame",
             iconEmoji = "🦶"
         )
         "PUSH_UPS", "PUSHUPS" -> PhonePlacementGuide(
             title = "Push-ups Setup",
-            phonePlacement = "📱 Floor (propped at 45°)",
-            cameraAngle = "📐 Side profile view",
-            distance = "📏 4 to 6 ft away",
+            phonePlacement = "Floor (propped at 45° angle)",
+            cameraAngle = "Side profile view across floor",
+            distance = "4 to 6 ft away",
             whatMustBeVisible = "Full horizontal body (head, chest, hips) in frame",
             iconEmoji = "💪"
         )
         "SIT_UPS", "SITUPS", "CRUNCHES" -> PhonePlacementGuide(
-            title = "Sit-ups Setup",
-            phonePlacement = "📱 Floor or low stand facing mat",
-            cameraAngle = "📐 Side horizontal angle",
-            distance = "📏 4 to 6 ft away",
-            whatMustBeVisible = "Upper body, hips, and knees visible while lying and sitting up",
+            title = "Core Sit-ups Setup",
+            phonePlacement = "Floor or low stand facing mat",
+            cameraAngle = "Side horizontal angle",
+            distance = "4 to 6 ft away",
+            whatMustBeVisible = "Upper body, hips, and knees visible while lying & curling",
             iconEmoji = "🤸"
         )
         "SQUATS", "BODYWEIGHT_SQUATS", "LUNGES", "ALTERNATING_LUNGES" -> PhonePlacementGuide(
             title = "Squats / Lunges Setup",
-            phonePlacement = "📱 Table or chair (waist height)",
-            cameraAngle = "📐 Straight forward angle",
-            distance = "📏 6 to 8 ft away",
-            whatMustBeVisible = "Full body (head to shoes) visible while standing and bending",
+            phonePlacement = "Table or chair (waist height)",
+            cameraAngle = "Straight forward angle",
+            distance = "6 to 8 ft away",
+            whatMustBeVisible = "Full body (head to shoes) while standing & descending",
             iconEmoji = "🏋️"
         )
         "WALL_SIT", "WALLSIT" -> PhonePlacementGuide(
             title = "Wall Sit Setup",
-            phonePlacement = "📱 Chair or floor facing wall",
-            cameraAngle = "📐 Side angle showing wall contact",
-            distance = "📏 5 to 7 ft away",
-            whatMustBeVisible = "Side view of back against wall and 90° bent knees",
+            phonePlacement = "Chair or table facing wall",
+            cameraAngle = "Side angle showing back-to-wall contact",
+            distance = "5 to 7 ft away",
+            whatMustBeVisible = "Back flat against wall and 90° bent knees",
             iconEmoji = "🧱"
         )
         "PLANK", "CORE_PLANK" -> PhonePlacementGuide(
             title = "Plank Hold Setup",
-            phonePlacement = "📱 Floor (propped on mat)",
-            cameraAngle = "📐 Side horizontal view",
-            distance = "📏 4 to 6 ft away",
+            phonePlacement = "Floor (propped on mat)",
+            cameraAngle = "Side horizontal view",
+            distance = "4 to 6 ft away",
             whatMustBeVisible = "Straight horizontal line from head to heels",
             iconEmoji = "🧘"
         )
         "JUMPING_JACKS", "HIGH_KNEES", "BURPEES" -> PhonePlacementGuide(
             title = "Cardio Sprint Setup",
-            phonePlacement = "📱 Table or shelf (chest height)",
-            cameraAngle = "📐 Level horizontal",
-            distance = "📏 7 to 9 ft away",
-            whatMustBeVisible = "Full body from head to feet with overhead jumping clearance",
+            phonePlacement = "Table or shelf (chest height)",
+            cameraAngle = "Level horizontal",
+            distance = "7 to 9 ft away",
+            whatMustBeVisible = "Full body from head to feet with overhead clearance",
             iconEmoji = "⚡"
         )
         else -> PhonePlacementGuide(
             title = "Camera Alignment Setup",
-            phonePlacement = "📱 Table or level surface",
-            cameraAngle = "📐 Straight facing you",
-            distance = "📏 6 to 8 ft away",
+            phonePlacement = "Table or level surface",
+            cameraAngle = "Straight facing you",
+            distance = "6 to 8 ft away",
             whatMustBeVisible = "Full body clearly framed in camera view",
             iconEmoji = "🧍"
         )

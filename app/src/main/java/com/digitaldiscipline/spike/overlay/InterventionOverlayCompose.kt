@@ -247,46 +247,48 @@ fun InterventionOverlayContent(
     // Full-screen Camera Pose Workout Mode
     if (activeTab == ActiveInterventionTab.CAMERA_POSE_WORKOUT) {
         val exerciseDef = selectedIntervention ?: currentIntervention
-        CameraPoseWorkoutScreen(
-            exerciseId = exerciseDef.id,
-            exerciseTitle = exerciseDef.title,
-            targetReps = exerciseDef.defaultReps.takeIf { it > 0 } ?: 15,
-            targetHoldSeconds = exerciseDef.defaultDurationSeconds.takeIf { it > 0 } ?: 30,
-            rewardMinutes = kotlin.math.max(5, unlockDurationSeconds / 60),
-            onComplete = { earnedSecs ->
-                val finalEarned = if (earnedSecs >= 300) earnedSecs else 300
-                EventLogger.log("OVERLAY", targetPackage, "INTERVENTION_COMPLETED", details = "Type: CAMERA_POSE | Exercise: ${exerciseDef.id} | Earned: $finalEarned")
-                earnedSecondsTotal = finalEarned
-                activeTab = ActiveInterventionTab.CHALLENGE_COMPLETED
-            },
-            onSwitchToMotionSensor = {
-                currentPauseSeconds = 30
-                activeTab = ActiveInterventionTab.PAUSE_10S
-            },
-            onSwitchChallenge = { newChallengeId ->
-                val newDef = InterventionCatalog.getIntervention(newChallengeId)
-                if (newDef != null) {
-                    selectedIntervention = newDef
-                    val isCamera = newDef.category == InterventionCategory.MOVEMENT ||
-                                   newDef.category == InterventionCategory.UPPER_BODY ||
-                                   newDef.category == InterventionCategory.YOGA_MOBILITY
-                    if (isCamera) {
-                        activeTab = ActiveInterventionTab.CAMERA_POSE_WORKOUT
-                    } else if (newDef.category == InterventionCategory.BREATHING || newDef.id.contains("BREATH")) {
-                        currentBreathingSeconds = if (newDef.defaultDurationSeconds > 0) kotlin.math.max(30, newDef.defaultDurationSeconds) else 30
-                        activeTab = ActiveInterventionTab.BREATHING_30S
-                    } else if (newDef.category == InterventionCategory.COGNITIVE || newDef.id.contains("PUZZLE") || newDef.id.contains("HANGMAN")) {
-                        activeTab = ActiveInterventionTab.COGNITIVE_CHALLENGE
-                    } else {
-                        currentPauseSeconds = if (newDef.defaultDurationSeconds > 0) kotlin.math.max(30, newDef.defaultDurationSeconds) else 30
-                        activeTab = ActiveInterventionTab.PAUSE_10S
+        key(exerciseDef.id) {
+            CameraPoseWorkoutScreen(
+                exerciseId = exerciseDef.id,
+                exerciseTitle = exerciseDef.title,
+                targetReps = exerciseDef.defaultReps.takeIf { it > 0 } ?: 15,
+                targetHoldSeconds = exerciseDef.defaultDurationSeconds.takeIf { it > 0 } ?: 30,
+                rewardMinutes = kotlin.math.max(5, unlockDurationSeconds / 60),
+                onComplete = { earnedSecs ->
+                    val finalEarned = if (earnedSecs >= 300) earnedSecs else 300
+                    EventLogger.log("OVERLAY", targetPackage, "INTERVENTION_COMPLETED", details = "Type: CAMERA_POSE | Exercise: ${exerciseDef.id} | Earned: $finalEarned")
+                    earnedSecondsTotal = finalEarned
+                    activeTab = ActiveInterventionTab.CHALLENGE_COMPLETED
+                },
+                onSwitchToMotionSensor = {
+                    currentPauseSeconds = 30
+                    activeTab = ActiveInterventionTab.PAUSE_10S
+                },
+                onSwitchChallenge = { newChallengeId ->
+                    val newDef = InterventionCatalog.getIntervention(newChallengeId)
+                    if (newDef != null) {
+                        selectedIntervention = newDef
+                        val isCamera = newDef.category == InterventionCategory.MOVEMENT ||
+                                       newDef.category == InterventionCategory.UPPER_BODY ||
+                                       newDef.category == InterventionCategory.YOGA_MOBILITY
+                        if (isCamera) {
+                            activeTab = ActiveInterventionTab.CAMERA_POSE_WORKOUT
+                        } else if (newDef.category == InterventionCategory.BREATHING || newDef.id.contains("BREATH")) {
+                            currentBreathingSeconds = if (newDef.defaultDurationSeconds > 0) kotlin.math.max(30, newDef.defaultDurationSeconds) else 30
+                            activeTab = ActiveInterventionTab.BREATHING_30S
+                        } else if (newDef.category == InterventionCategory.COGNITIVE || newDef.id.contains("PUZZLE") || newDef.id.contains("HANGMAN")) {
+                            activeTab = ActiveInterventionTab.COGNITIVE_CHALLENGE
+                        } else {
+                            currentPauseSeconds = if (newDef.defaultDurationSeconds > 0) kotlin.math.max(30, newDef.defaultDurationSeconds) else 30
+                            activeTab = ActiveInterventionTab.PAUSE_10S
+                        }
                     }
+                },
+                onDismiss = {
+                    activeTab = ActiveInterventionTab.INTENTIONAL_PAUSE
                 }
-            },
-            onDismiss = {
-                activeTab = ActiveInterventionTab.INTENTIONAL_PAUSE
-            }
-        )
+            )
+        }
         return
     }
 
